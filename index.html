@@ -1,1238 +1,2873 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>CardioLab 3.0 - Simulador Farmacológico</title>
-  <style>
-    :root {
-      --c-void: #001219;
-      --c-dark-teal: #005F73;
-      --c-ocean-teal: #0A9396;
-      --c-sage-mint: #94D2BD;
-      --c-champagne: #E9D8A6;
-      --c-amber-gold: #EE9B00;
-      --c-burnt-orange: #CA6702;
-      --c-flame-rust: #BB3E03;
-      --c-crimson: #AE2012;
-      --c-wine: #9B2226;
-      
-      --bg-page: #f4f7f6;
-      --bg-surface: rgba(255, 255, 255, 0.85);
-      --glass-border: rgba(0, 95, 115, 0.2);
-      --glass-border-strong: rgba(0, 95, 115, 0.38);
-      --text-main: #001219;
-      --text-muted: #005F73;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-      border-radius: 0 !important;
-    }
-
-    body {
-      background: radial-gradient(circle at 10% 10%, #ffffff 0%, var(--bg-page) 100%);
-      color: var(--text-main);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow-x: hidden;
-      padding-top: env(safe-area-inset-top);
-      padding-bottom: env(safe-area-inset-bottom);
-    }
-
-    /* Barra Superior */
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 24px;
-      background: rgba(255, 255, 255, 0.9);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1.5px solid var(--glass-border);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      box-shadow: 0 2px 10px rgba(0, 18, 25, 0.04);
-    }
-
-    .brand {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .brand h1 {
-      font-size: 1.25rem;
-      font-weight: 900;
-      letter-spacing: -0.5px;
-      background: linear-gradient(90deg, var(--c-dark-teal), var(--c-ocean-teal));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .brand span {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      opacity: 0.85;
-      font-weight: 600;
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    /* Toggle Modo Inmediato / En Vivo */
-    .mode-switch-wrap {
-      display: flex;
-      align-items: center;
-      background: rgba(0, 95, 115, 0.08);
-      border: 1.5px solid var(--glass-border);
-      padding: 3px;
-    }
-
-    .mode-btn {
-      padding: 6px 12px;
-      font-size: 0.75rem;
-      font-weight: 800;
-      cursor: pointer;
-      border: none;
-      background: transparent;
-      color: var(--text-muted);
-      transition: all 0.15s ease;
-    }
-
-    .mode-btn.active {
-      background: var(--c-ocean-teal);
-      color: #fff;
-    }
-
-    .liquid-glass {
-      background: var(--bg-surface);
-      backdrop-filter: blur(20px) saturate(160%);
-      -webkit-backdrop-filter: blur(20px) saturate(160%);
-      border: 1.5px solid var(--glass-border);
-      box-shadow: 0 8px 24px rgba(0, 95, 115, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    }
-
-    .btn-glass {
-      background: rgba(10, 147, 150, 0.12);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1.5px solid var(--c-ocean-teal);
-      color: var(--c-dark-teal);
-      font-size: 0.8rem;
-      font-weight: 700;
-      padding: 7px 14px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: 0 2px 6px rgba(0, 18, 25, 0.04);
-      min-height: 36px;
-    }
-
-    .btn-glass:hover {
-      background: rgba(10, 147, 150, 0.22);
-      border-color: var(--c-dark-teal);
-      transform: translateY(-1px);
-    }
-
-    .btn-glass:active {
-      transform: scale(0.98);
-    }
-
-    .btn-glass.btn-danger {
-      background: rgba(174, 32, 18, 0.12);
-      border-color: var(--c-crimson);
-      color: var(--c-crimson);
-    }
-    .btn-glass.btn-danger:hover {
-      background: rgba(174, 32, 18, 0.22);
-    }
-
-    /* Pestañas Móviles */
-    .mobile-nav-tabs {
-      display: none;
-      padding: 6px 14px;
-      gap: 8px;
-      background: rgba(255, 255, 255, 0.95);
-      position: sticky;
-      top: 60px;
-      z-index: 90;
-      border-bottom: 1.5px solid var(--glass-border);
-    }
-
-    .mobile-tab-btn {
-      flex: 1;
-      padding: 9px 0;
-      border: 1.5px solid transparent;
-      background: rgba(0, 95, 115, 0.08);
-      color: var(--c-dark-teal);
-      font-size: 0.8rem;
-      font-weight: 700;
-      text-align: center;
-      cursor: pointer;
-    }
-
-    .mobile-tab-btn.active {
-      background: var(--c-ocean-teal);
-      color: #fff;
-      border-color: var(--c-dark-teal);
-    }
-
-    /* Layout Responsive Principal */
-    main {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1fr 380px;
-      gap: 18px;
-      padding: 18px 22px;
-      max-width: 1680px;
-      margin: 0 auto;
-      width: 100%;
-    }
-
-    .viewport-col {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .telemetry-bar {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      padding: 14px 18px;
-    }
-
-    .metric-item {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .metric-label {
-      font-size: 0.68rem;
-      text-transform: uppercase;
-      letter-spacing: 0.7px;
-      font-weight: 800;
-      color: var(--text-muted);
-    }
-
-    .metric-value-wrap {
-      display: flex;
-      align-items: baseline;
-      gap: 4px;
-    }
-
-    .metric-value {
-      font-size: 1.65rem;
-      font-weight: 900;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .metric-unit {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
-    .chart-panel {
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      flex: 1;
-      min-height: 440px;
-    }
-
-    .chart-panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .chart-legends {
-      display: flex;
-      gap: 14px;
-      font-size: 0.76rem;
-      font-weight: 700;
-      flex-wrap: wrap;
-    }
-
-    .legend-tag {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .legend-bullet {
-      width: 10px;
-      height: 10px;
-      border: 1px solid rgba(0, 18, 25, 0.2);
-    }
-
-    .canvas-container {
-      position: relative;
-      flex: 1;
-      width: 100%;
-      height: 100%;
-      min-height: 360px;
-      overflow: hidden;
-      background: #ffffff;
-      border: 1.5px solid var(--glass-border-strong);
-      box-shadow: inset 0 2px 8px rgba(0, 18, 25, 0.04);
-    }
-
-    canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    /* Columna Derecha */
-    .controls-col {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .panel-box {
-      padding: 16px 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .panel-title {
-      font-size: 0.82rem;
-      font-weight: 800;
-      color: var(--c-dark-teal);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1.5px solid var(--glass-border);
-      padding-bottom: 6px;
-    }
-
-    .drug-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .drug-card {
-      padding: 9px 10px;
-      background: rgba(255, 255, 255, 0.95);
-      border: 1.5px solid var(--glass-border);
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-height: 50px;
-      justify-content: center;
-      transition: all 0.15s ease;
-    }
-
-    .drug-card:hover {
-      background: rgba(148, 210, 189, 0.2);
-      border-color: var(--c-ocean-teal);
-    }
-
-    .drug-card.active {
-      background: var(--c-dark-teal);
-      border: 1.5px solid var(--c-void);
-      box-shadow: 0 4px 10px rgba(0, 95, 115, 0.22);
-    }
-
-    .drug-card.active .drug-name {
-      color: #ffffff;
-    }
-
-    .drug-card.active .drug-mech {
-      color: var(--c-champagne);
-    }
-
-    .drug-name {
-      font-size: 0.8rem;
-      font-weight: 800;
-      color: var(--text-main);
-    }
-
-    .drug-mech {
-      font-size: 0.66rem;
-      color: var(--text-muted);
-      opacity: 0.85;
-      font-weight: 500;
-    }
-
-    /* Entrada de Dosis y Unidades */
-    .dose-input-section {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      background: rgba(0, 95, 115, 0.04);
-      padding: 12px;
-      border: 1.5px solid var(--glass-border);
-    }
-
-    .input-row {
-      display: flex;
-      gap: 8px;
-    }
-
-    .dose-field {
-      flex: 1;
-      background: #ffffff;
-      border: 1.5px solid var(--c-ocean-teal);
-      padding: 8px 12px;
-      color: var(--text-main);
-      font-size: 1.25rem;
-      font-weight: 800;
-      outline: none;
-      font-variant-numeric: tabular-nums;
-      -webkit-appearance: none;
-    }
-
-    .dose-field:focus {
-      border-color: var(--c-dark-teal);
-      box-shadow: 0 0 0 2px rgba(10, 147, 150, 0.2);
-    }
-
-    /* Selector desplegable de unidades */
-    .unit-selector {
-      background: var(--c-dark-teal);
-      color: #ffffff;
-      border: 1.5px solid var(--c-dark-teal);
-      font-size: 0.82rem;
-      font-weight: 800;
-      padding: 0 12px;
-      cursor: pointer;
-      outline: none;
-    }
-
-    .stepper-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
-    }
-
-    .btn-step {
-      padding: 7px 0;
-      background: #ffffff;
-      border: 1.5px solid var(--glass-border);
-      color: var(--c-dark-teal);
-      font-size: 0.8rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .btn-step:hover {
-      background: rgba(148, 210, 189, 0.3);
-      border-color: var(--c-ocean-teal);
-    }
-
-    .btn-step:active {
-      background: var(--c-ocean-teal);
-      color: #fff;
-    }
-
-    .btn-inject-big {
-      width: 100%;
-      padding: 13px;
-      background: linear-gradient(135deg, var(--c-burnt-orange) 0%, var(--c-flame-rust) 100%);
-      border: 1.5px solid var(--c-crimson);
-      color: #ffffff;
-      font-size: 0.92rem;
-      font-weight: 900;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      cursor: pointer;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 8px;
-      min-height: 46px;
-      box-shadow: 0 5px 16px rgba(187, 62, 3, 0.25);
-      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .btn-inject-big:hover {
-      transform: translateY(-1.5px);
-      box-shadow: 0 7px 20px rgba(187, 62, 3, 0.35);
-    }
-
-    .btn-inject-big:active {
-      transform: scale(0.98);
-    }
-
-    /* Historial */
-    .history-list {
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-      max-height: 230px;
-      overflow-y: auto;
-      padding-right: 4px;
-    }
-
-    .history-list::-webkit-scrollbar {
-      width: 4px;
-    }
-    .history-list::-webkit-scrollbar-thumb {
-      background: var(--c-ocean-teal);
-    }
-
-    .history-item {
-      padding: 9px 12px;
-      background: #ffffff;
-      border: 1.5px solid var(--glass-border);
-      border-left: 4px solid var(--c-ocean-teal);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.77rem;
-    }
-
-    .hist-main {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .hist-title {
-      font-weight: 800;
-      color: var(--text-main);
-    }
-
-    .hist-meta {
-      font-size: 0.67rem;
-      color: var(--text-muted);
-      opacity: 0.85;
-      font-weight: 600;
-    }
-
-    .hist-stats {
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-      font-size: 0.71rem;
-      line-height: 1.35;
-      color: var(--text-main);
-    }
-
-    .status-badge {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      background: var(--c-ocean-teal);
-      border: 1px solid var(--c-dark-teal);
-    }
-
-    @media (max-width: 768px) {
-      header {
-        padding: 10px 14px;
-      }
-      .brand h1 {
-        font-size: 1.1rem;
-      }
-      .brand span {
-        display: none;
-      }
-      .btn-glass span:not(#playIcon) {
-        display: none;
-      }
-      .header-actions {
-        gap: 6px;
-      }
-      .btn-glass {
-        padding: 6px 10px;
-        min-height: 34px;
-      }
-
-      .mobile-nav-tabs {
-        display: flex;
-      }
-
-      main {
-        grid-template-columns: 1fr;
-        padding: 12px;
-        gap: 12px;
-      }
-
-      .viewport-col.mobile-hidden,
-      .controls-col.mobile-hidden {
-        display: none !important;
-      }
-
-      .telemetry-bar {
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        padding: 10px;
-      }
-
-      .metric-value {
-        font-size: 1.4rem;
-      }
-
-      .chart-panel {
-        min-height: 360px;
-        padding: 10px;
-      }
-
-      .canvas-container {
-        min-height: 270px;
-      }
-
-      .drug-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CardioLab</title>
+<meta name="description" content="Simulador de farmacología cardiovascular: presión arterial y frecuencia cardíaca en respuesta a fármacos autonómicos y vasoactivos.">
+<meta name="theme-color" content="#EEF3F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F1C1E" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B7F7C'/%3E%3Cpath d='M4 17h6l2.5-6 4 12 3-9 1.5 3H28' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #EEF3F3;
+  --surface: #FFFFFF;
+  --surface-2: #F4F8F8;
+  --surface-3: #E6EEEE;
+  --ink: #102A2A;
+  --ink-2: #3F5958;
+  --muted: #667D7C;
+  --line: #D5E1E0;
+  --line-strong: #B9CBCA;
+  --accent: #0B7F7C;
+  --accent-hover: #086A67;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #D6EEEC;
+  --accent-text: #08615F;
+  --pres: #00918B;
+  --pres-band: rgba(0, 145, 139, 0.17);
+  --hr: #C2185B;
+  --heart: #C93A6A;
+  --heart-dark: #9C2550;
+  --vessel: #D05A80;
+  --vessel-2: #7A87C8;
+  --blood: #B42A52;
+  --rbc: #E5577D;
+  --wall: rgba(0, 145, 139, 0.22);
+  --wall-cell: rgba(0, 120, 115, 0.55);
+  --sym: #B86A05;
+  --vag: #4F58C4;
+  --warm-soft: #FBEBDD;
+  --warm-text: #8A4B0F;
+  --rose-soft: #FBE3EC;
+  --rose-text: #9B1748;
+  --grid: rgba(16, 42, 42, 0.08);
+  --marker: #102A2A;
+  --marker-ink: #FFFFFF;
+  --shadow-sheet: 0 -12px 40px rgba(10, 40, 40, 0.18);
+  --r-lg: 18px;
+  --r-md: 12px;
+  --r-sm: 8px;
+  --nav-h: 64px;
+  --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0F1C1E;
+    --surface: #152628;
+    --surface-2: #1A2E30;
+    --surface-3: #22393B;
+    --ink: #E3EFEE;
+    --ink-2: #B3C8C7;
+    --muted: #87A09F;
+    --line: #27403F;
+    --line-strong: #375453;
+    --accent: #36BDB6;
+    --accent-hover: #4ED0C9;
+    --accent-ink: #062322;
+    --accent-soft: #163F3E;
+    --accent-text: #6FD8D1;
+    --pres: #109F9F;
+    --pres-band: rgba(30, 175, 172, 0.22);
+    --hr: #E34E78;
+    --heart: #D9507C;
+    --heart-dark: #A8345B;
+    --vessel: #DE6A8E;
+    --vessel-2: #8C97DE;
+    --blood: #A92D52;
+    --rbc: #F07899;
+    --wall: rgba(30, 175, 172, 0.22);
+    --wall-cell: rgba(70, 205, 198, 0.55);
+    --sym: #E9A23B;
+    --vag: #929AF5;
+    --warm-soft: #3A2C17;
+    --warm-text: #F2C07A;
+    --rose-soft: #3D1D29;
+    --rose-text: #F49BB6;
+    --grid: rgba(227, 239, 238, 0.08);
+    --marker: #E3EFEE;
+    --marker-ink: #0F1C1E;
+    --shadow-sheet: 0 -12px 40px rgba(0, 0, 0, 0.5);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0F1C1E;
+  --surface: #152628;
+  --surface-2: #1A2E30;
+  --surface-3: #22393B;
+  --ink: #E3EFEE;
+  --ink-2: #B3C8C7;
+  --muted: #87A09F;
+  --line: #27403F;
+  --line-strong: #375453;
+  --accent: #36BDB6;
+  --accent-hover: #4ED0C9;
+  --accent-ink: #062322;
+  --accent-soft: #163F3E;
+  --accent-text: #6FD8D1;
+  --pres: #109F9F;
+  --pres-band: rgba(30, 175, 172, 0.22);
+  --hr: #E34E78;
+  --heart: #D9507C;
+  --heart-dark: #A8345B;
+  --vessel: #DE6A8E;
+  --vessel-2: #8C97DE;
+  --blood: #A92D52;
+  --rbc: #F07899;
+  --wall: rgba(30, 175, 172, 0.22);
+  --wall-cell: rgba(70, 205, 198, 0.55);
+  --sym: #E9A23B;
+  --vag: #929AF5;
+  --warm-soft: #3A2C17;
+  --warm-text: #F2C07A;
+  --rose-soft: #3D1D29;
+  --rose-text: #F49BB6;
+  --grid: rgba(227, 239, 238, 0.08);
+  --marker: #E3EFEE;
+  --marker-ink: #0F1C1E;
+  --shadow-sheet: 0 -12px 40px rgba(0, 0, 0, 0.5);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.num { font-variant-numeric: tabular-nums; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+h1, h2, h3 { margin: 0; line-height: 1.2; }
+
+/* ---------- Barra superior ---------- */
+.appbar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top));
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 8px; min-width: 0; margin-right: auto; }
+.brand svg { flex: none; }
+.brand-name { font-weight: 800; font-size: 18px; letter-spacing: -0.01em; white-space: nowrap; }
+.brand-name span { color: var(--accent-text); }
+.seg {
+  display: inline-flex; padding: 3px; gap: 2px;
+  background: var(--surface-3); border-radius: 999px;
+}
+.seg button {
+  border: 0; background: transparent; border-radius: 999px;
+  padding: 6px 12px; font-size: 14px; font-weight: 600; color: var(--ink-2);
+  white-space: nowrap; min-height: 32px;
+}
+.seg button[aria-pressed="true"], .seg button[aria-selected="true"] {
+  background: var(--surface); color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 0 0 1px var(--line);
+}
+.seg.small button { padding: 4px 10px; font-size: 13px; min-height: 28px; }
+.icon-btn {
+  width: 40px; height: 40px; flex: none;
+  display: inline-grid; place-items: center;
+  border: 0; border-radius: 12px; background: transparent; color: var(--ink-2);
+}
+.icon-btn:hover { background: var(--surface-3); color: var(--ink); }
+.menu-wrap { position: relative; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 40;
+  min-width: 250px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: 0 12px 32px rgba(0,0,0,.16);
+}
+.menu button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  border: 0; background: transparent; padding: 10px 12px; border-radius: 8px;
+  text-align: left; font-size: 15px;
+}
+.menu button:hover { background: var(--surface-2); }
+.menu button svg { color: var(--muted); flex: none; }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
+.menu .danger { color: var(--rose-text); }
+.menu .danger svg { color: currentColor; }
+
+/* ---------- Estructura ---------- */
+main {
+  width: 100%; max-width: 1240px; margin: 0 auto;
+  padding: 12px 12px calc(var(--nav-h) + 24px + env(safe-area-inset-bottom));
+}
+.tab { animation: none; }
+.cols { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+.stack { display: grid; gap: 12px; min-width: 0; }
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 14px; min-width: 0;
+}
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.card-title { font-size: 17px; font-weight: 700; }
+.card-sub { color: var(--muted); font-size: 13px; }
+
+/* ---------- Constantes ---------- */
+.vitals {
+  display: grid; grid-template-columns: 1.35fr 1fr 1fr 0.9fr; gap: 1px;
+  background: var(--line); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden;
+}
+.vital { background: var(--surface); padding: 10px 10px 9px; min-width: 0; }
+.vital-label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.vital-label i { width: 10px; height: 3px; border-radius: 2px; flex: none; }
+.vital-value { font-size: clamp(21px, 6vw, 30px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin-top: 2px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.vital-unit { font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: 0; margin-left: 2px; }
+.vital-delta { font-size: 12px; color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ---------- Gráfica ---------- */
+.chart-card { padding: 12px 12px 10px; }
+.chart-top { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--ink-2); }
+.lg { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.sw-band { width: 16px; height: 10px; border-radius: 3px; background: var(--pres-band); box-shadow: inset 0 1px 0 var(--pres), inset 0 -1px 0 var(--pres); }
+.sw-line { width: 16px; height: 2.5px; border-radius: 2px; }
+.sw-line.pres { background: var(--pres); }
+.sw-line.hr { background: var(--hr); }
+.live-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.play-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 5px 12px 5px 9px; font-weight: 600; font-size: 14px; min-height: 34px;
+}
+.play-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.live-time { margin-left: auto; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chart-wrap { position: relative; height: 300px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.chart-wrap canvas, .mini-wrap canvas { display: block; width: 100%; height: 100%; }
+.mini-wrap { position: relative; height: 46px; margin-top: 6px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.chart-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 12.5px; color: var(--muted); min-height: 30px; }
+.link-btn { border: 0; background: transparent; color: var(--accent-text); font-weight: 700; font-size: 13px; padding: 6px 4px; }
+.tip {
+  position: absolute; top: 26px; z-index: 2; pointer-events: none;
+  min-width: 148px; max-width: 200px;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px;
+  padding: 8px 10px; font-size: 12.5px; line-height: 1.45;
+  box-shadow: 0 6px 20px rgba(0,0,0,.14);
+}
+.tip-t { font-weight: 700; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+.tip-row { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tip-row i { width: 10px; height: 2.5px; border-radius: 2px; flex: none; }
+.tip-row b { margin-left: auto; padding-left: 8px; }
+.tip-ev { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line); color: var(--ink-2); white-space: normal; }
+
+/* ---------- Administración ---------- */
+.admin .card-title { margin-bottom: 10px; }
+.drug-pick {
+  display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 2px 8px;
+  width: 100%; text-align: left;
+  border: 1px solid var(--line-strong); background: var(--surface-2);
+  border-radius: var(--r-md); padding: 10px 12px;
+}
+.drug-pick:hover { border-color: var(--accent); }
+.dp-cat { font-size: 12.5px; color: var(--accent-text); font-weight: 600; }
+.dp-name { font-size: 19px; font-weight: 700; grid-column: 1; }
+.dp-mech { font-size: 13px; color: var(--ink-2); grid-column: 1; }
+.drug-pick svg { grid-column: 2; grid-row: 1 / span 3; color: var(--muted); }
+.dp-desc { font-size: 13.5px; color: var(--ink-2); margin: 10px 2px 12px; line-height: 1.5; }
+.dose-grid { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 8px; }
+.dose-grid.with-weight { grid-template-columns: minmax(0, 1fr) 92px 78px; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field > span { font-size: 12.5px; color: var(--muted); }
+.field input, .field select {
+  width: 100%; min-width: 0; height: 44px;
+  border: 1px solid var(--line-strong); border-radius: 10px;
+  background: var(--surface); padding: 0 10px; font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.field select { appearance: none; -webkit-appearance: none; padding-right: 26px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23889' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 9px center; }
+.field input:focus, .field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.field input[aria-invalid="true"] { border-color: var(--hr); }
+.dose-chips { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.chip-btn {
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2);
+  border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 600; min-height: 32px;
+}
+.chip-btn:hover { border-color: var(--line-strong); color: var(--ink); }
+.dose-eq { font-size: 13px; color: var(--muted); margin: 8px 2px 0; min-height: 1.5em; font-variant-numeric: tabular-nums; }
+.field-error { color: var(--rose-text); font-size: 13px; margin: 6px 2px 0; }
+.btn-primary {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; margin-top: 12px; min-height: 48px;
+  border: 0; border-radius: 14px; background: var(--accent); color: var(--accent-ink);
+  font-size: 16px; font-weight: 700;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:disabled { opacity: .6; cursor: progress; }
+.btn-secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 42px; padding: 0 14px;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  border-radius: 12px; font-size: 14.5px; font-weight: 600;
+}
+.btn-secondary:hover { border-color: var(--accent); }
+.btn-secondary.danger { color: var(--rose-text); }
+.hint { font-size: 12.5px; color: var(--muted); margin: 10px 2px 0; }
+
+/* ---------- Fisiología ---------- */
+.replay { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; }
+.replay-title { font-weight: 700; font-size: 15px; }
+.replay-sub { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.replay .btn-secondary { min-height: 38px; font-size: 13.5px; }
+.replay-bar { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+.replay-bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+.figs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fig { margin: 0; display: grid; gap: 6px; justify-items: center; text-align: center; min-width: 0; }
+.fig svg { width: 100%; max-width: 220px; height: auto; aspect-ratio: 1; display: block; overflow: visible; }
+.fig-title { font-weight: 700; font-size: 14px; }
+.fig-val { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.fig-val small { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.fig-sub { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.state-pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--surface-3); color: var(--ink-2); }
+.state-pill.up { background: var(--warm-soft); color: var(--warm-text); }
+.state-pill.down { background: var(--accent-soft); color: var(--accent-text); }
+.derived { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 1px; background: var(--line); border-radius: var(--r-md); overflow: hidden; margin-top: 12px; border: 1px solid var(--line); }
+.derived div { background: var(--surface-2); padding: 7px 8px; min-width: 0; }
+.derived > div > span { display: block; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.derived b { font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pulse-wrap { height: 128px; position: relative; }
+.pulse-wrap canvas { display: block; width: 100%; height: 100%; }
+.tone-row { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 4px 10px; align-items: center; }
+.tone-row + .tone-row { margin-top: 12px; }
+.tone-name { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+.tone-name i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.tone-lane { height: 26px; }
+.tone-lane canvas { display: block; width: 100%; height: 100%; }
+.tone-meter { grid-column: 2; display: flex; align-items: center; gap: 8px; }
+.meter { position: relative; flex: 1; height: 6px; border-radius: 6px; background: var(--surface-3); }
+.meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; }
+.meter b { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink-2); left: 33.33%; border-radius: 1px; }
+.tone-val { font-size: 13px; font-variant-numeric: tabular-nums; min-width: 96px; text-align: right; color: var(--ink-2); white-space: nowrap; }
+.tone-note { font-size: 12.5px; color: var(--muted); margin: 12px 0 0; }
+.rec-list { display: grid; gap: 7px; }
+.rec { display: grid; grid-template-columns: 74px minmax(0,1fr) 84px; gap: 10px; align-items: center; font-size: 13px; }
+.rec-name { font-weight: 600; white-space: nowrap; }
+.rec-bar { position: relative; height: 8px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+.rec-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 4px; }
+.rec-bar s { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink-2); opacity: .55; }
+.rec.blocked .rec-bar { background: repeating-linear-gradient(135deg, var(--surface-3) 0 4px, var(--line-strong) 4px 6px); }
+.rec.blocked .rec-bar i { background: var(--muted); }
+.rec-val { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rec.blocked .rec-val { color: var(--rose-text); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--surface-3); color: var(--ink-2); white-space: nowrap; }
+.chip.up { background: var(--warm-soft); color: var(--warm-text); }
+.chip.down { background: var(--accent-soft); color: var(--accent-text); }
+.chip.bi { background: var(--rose-soft); color: var(--rose-text); }
+.chip.block { background: var(--rose-soft); color: var(--rose-text); }
+.chip.drug { background: var(--surface-2); border: 1px solid var(--line); color: var(--ink); }
+.subhead { font-size: 13px; font-weight: 700; color: var(--ink-2); margin: 14px 0 8px; }
+.subhead:first-child { margin-top: 0; }
+
+/* ---------- Historial ---------- */
+.hist-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.hist-count { font-size: 20px; font-weight: 700; }
+.hist-count small { display: block; font-size: 13px; font-weight: 500; color: var(--muted); }
+.ev-list { display: grid; gap: 8px; }
+.ev { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); min-width: 0; }
+.ev.changed { border-left: 3px solid var(--accent); }
+.ev-head {
+  display: grid; grid-template-columns: 32px minmax(0,1fr) auto; gap: 10px; align-items: start;
+  width: 100%; border: 0; background: transparent; padding: 12px; text-align: left;
+}
+.ev-n { width: 28px; height: 28px; border-radius: 50%; background: var(--marker); color: var(--marker-ink); display: grid; place-items: center; font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; }
+.ev-main { min-width: 0; display: grid; gap: 4px; }
+.ev-name { font-weight: 700; font-size: 16px; line-height: 1.25; overflow-wrap: anywhere; }
+.ev-dose { font-weight: 500; color: var(--ink-2); font-size: 14px; }
+.ev-meta { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ev-right { display: grid; justify-items: end; gap: 2px; font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--ink-2); white-space: nowrap; }
+.ev-right svg { color: var(--muted); transition: transform .2s; margin-top: 2px; }
+.ev-head[aria-expanded="true"] .ev-right svg { transform: rotate(180deg); }
+.ev-body { padding: 0 12px 14px; display: grid; gap: 12px; }
+.cmp-table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.cmp-table th { text-align: right; font-weight: 600; font-size: 12px; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.cmp-table th:first-child, .cmp-table td:first-child { text-align: left; padding-left: 0; }
+.cmp-table td { text-align: right; padding: 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.cmp-table td:last-child, .cmp-table th:last-child { padding-right: 0; }
+.cmp-table tr:last-child td { border-bottom: 0; }
+.cmp { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--surface-3); color: var(--ink-2); }
+.cmp-potenciada, .cmp-nuevo { background: var(--accent-soft); color: var(--accent-text); }
+.cmp-atenuada { background: var(--warm-soft); color: var(--warm-text); }
+.cmp-abolida { background: var(--surface-3); color: var(--ink); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.cmp-invertida { background: var(--rose-soft); color: var(--rose-text); }
+.sparks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.spark { min-width: 0; }
+.spark-title { font-size: 12px; color: var(--muted); margin-bottom: 2px; display: flex; justify-content: space-between; gap: 6px; }
+.spark svg { width: 100%; height: 72px; display: block; overflow: visible; }
+.spark-legend { display: flex; gap: 14px; font-size: 12px; color: var(--ink-2); grid-column: 1 / -1; }
+.spark-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.spark-legend i { width: 18px; height: 0; border-top: 2px solid var(--ink-2); }
+.spark-legend i.dash { border-top-style: dashed; border-top-color: var(--muted); }
+.notes { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.notes li { font-size: 14px; line-height: 1.55; padding: 10px 12px; background: var(--surface-2); border-radius: 10px; border-left: 3px solid var(--accent); }
+.mech { font-size: 13px; color: var(--ink-2); line-height: 1.55; margin: 0; }
+.mech b { color: var(--ink); }
+.ev-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.empty { text-align: center; padding: 36px 18px; color: var(--ink-2); }
+.empty h3 { font-size: 18px; color: var(--ink); margin-bottom: 6px; }
+.empty p { margin: 0 auto 16px; max-width: 34ch; font-size: 14px; }
+
+/* ---------- Sesión ---------- */
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.stat { background: var(--surface); padding: 10px 12px; min-width: 0; }
+.stat span { display: block; font-size: 12.5px; color: var(--muted); }
+.stat b { font-size: 19px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stat small { font-size: 12px; color: var(--muted); font-weight: 500; }
+.concl { margin: 0; padding: 0; list-style: none; display: grid; gap: 0; }
+.concl li { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; line-height: 1.55; }
+.concl li:last-child { border-bottom: 0; }
+.concl li b { font-variant-numeric: tabular-nums; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- Navegación inferior ---------- */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  border-top: 1px solid var(--line);
+}
+.tabbar button {
+  position: relative; display: grid; justify-items: center; gap: 2px;
+  border: 0; background: transparent; color: var(--muted);
+  padding: 6px 2px 4px; border-radius: 12px; font-size: 12px; font-weight: 600; min-height: 52px;
+}
+.tabbar button svg { width: 24px; height: 24px; }
+.tabbar button[aria-selected="true"] { color: var(--accent-text); }
+.tabbar button[aria-selected="true"]::before {
+  content: ""; position: absolute; top: 4px; width: 52px; height: 30px; border-radius: 15px;
+  background: var(--accent-soft); z-index: -1;
+}
+.tabbar .badge {
+  position: absolute; top: 2px; left: calc(50% + 6px);
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--marker); color: var(--marker-ink); font-size: 11px; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Hoja de fármacos ---------- */
+.sheet { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+.sheet-backdrop { position: absolute; inset: 0; background: rgba(5, 20, 20, .45); }
+.sheet-panel {
+  position: relative; width: 100%; max-width: 640px; max-height: 92vh; max-height: 92dvh;
+  display: flex; flex-direction: column;
+  background: var(--surface); border-radius: 22px 22px 0 0; box-shadow: var(--shadow-sheet);
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: sheet-in .22s ease-out;
+}
+@keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 12px 6px 18px; }
+.sheet-head h2 { font-size: 19px; }
+.search {
+  display: flex; align-items: center; gap: 8px; margin: 4px 16px 10px; padding: 0 12px;
+  height: 46px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface-2);
+}
+.search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.search svg { color: var(--muted); flex: none; }
+.search input { flex: 1; min-width: 0; border: 0; background: transparent; font-size: 16px; height: 100%; outline: none; }
+.cat-chips { display: flex; gap: 6px; overflow-x: auto; padding: 0 16px 10px; scrollbar-width: none; flex: none; }
+.cat-chips::-webkit-scrollbar { display: none; }
+.cat-chips button { flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); border-radius: 999px; padding: 6px 12px; font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+.cat-chips button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.drug-list { overflow-y: auto; padding: 0 10px 16px; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.drug-group h3 { font-size: 13px; color: var(--muted); font-weight: 700; padding: 12px 8px 6px; }
+.drug-item {
+  display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 1px 10px; align-items: center;
+  width: 100%; text-align: left; border: 0; background: transparent; border-radius: 12px; padding: 10px 10px;
+}
+.drug-item:hover { background: var(--surface-2); }
+.drug-item[aria-selected="true"] { background: var(--accent-soft); }
+.di-name { font-weight: 700; font-size: 15.5px; }
+.di-mech { grid-column: 1; font-size: 13px; color: var(--ink-2); }
+.di-dose { grid-column: 2; grid-row: 1 / span 2; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.drug-empty { padding: 30px 16px; text-align: center; color: var(--muted); }
+
+/* ---------- Diálogo y aviso ---------- */
+dialog {
+  border: 1px solid var(--line); border-radius: 18px; padding: 20px; max-width: min(92vw, 400px);
+  background: var(--surface); color: var(--ink); box-shadow: 0 20px 50px rgba(0,0,0,.25);
+}
+dialog::backdrop { background: rgba(5, 20, 20, .45); }
+dialog h2 { font-size: 18px; margin-bottom: 8px; }
+dialog p { margin: 0 0 16px; color: var(--ink-2); font-size: 14.5px; }
+dialog .actions { justify-content: flex-end; }
+.btn-danger { min-height: 42px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--hr); color: #fff; font-weight: 700; font-size: 14.5px; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(var(--nav-h) + 14px + env(safe-area-inset-bottom)); z-index: 60;
+  transform: translateX(-50%); width: max-content; max-width: calc(100vw - 32px);
+  background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 12px;
+  font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  transition: opacity .2s, transform .2s;
+}
+.toast.hide { opacity: 0; transform: translate(-50%, 8px); pointer-events: none; }
+
+/* ---------- Pantallas anchas ---------- */
+@media (max-width: 379px) {
+  .brand-name { display: none; }
+}
+@media (max-width: 479px) {
+  .vitals { grid-template-columns: 1.5fr 1fr 1fr 1fr; }
+  .vital { padding: 9px 8px 8px; }
+  .vital-value { font-size: clamp(19px, 5.6vw, 24px); }
+  .vital-value .vital-unit { display: none; }
+  .vital-label .u { display: inline; }
+  .derived { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+.vital-label .u { display: none; color: var(--muted); }
+@media (min-width: 560px) {
+  .chart-wrap { height: 340px; }
+  .stats { grid-template-columns: repeat(3, minmax(0,1fr)); }
+}
+@media (min-width: 900px) {
+  :root { --nav-h: 0px; }
+  main { padding: 16px 20px 32px; }
+  .appbar { padding-left: 20px; padding-right: 20px; }
+  .tabbar {
+    position: static; display: flex; gap: 4px; padding: 0; background: transparent; border: 0;
+    backdrop-filter: none; -webkit-backdrop-filter: none; order: 0;
+  }
+  .tabbar button { display: flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; font-size: 14px; }
+  .tabbar button svg { width: 20px; height: 20px; }
+  .tabbar button[aria-selected="true"] { background: var(--accent-soft); }
+  .tabbar button[aria-selected="true"]::before { display: none; }
+  .tabbar .badge { position: static; margin-left: 2px; }
+  .brand { margin-right: 12px; }
+  .appbar .spacer { flex: 1; }
+  .cols { grid-template-columns: minmax(0, 1fr) 340px; align-items: start; gap: 16px; }
+  .cols .slot { position: sticky; top: 74px; }
+  .chart-wrap { height: 400px; }
+  .narrow { max-width: 860px; margin: 0 auto; }
+  .fis-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+  .fis-grid > .wide { grid-column: 1 / -1; }
+  .toast { bottom: 24px; }
+  .sheet { align-items: center; }
+  .sheet-panel { border-radius: 22px; max-height: 80vh; }
+}
+@media (max-width: 899px) {
+  .appbar .spacer { display: none; }
+  .fis-grid { display: grid; gap: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-panel { animation: none; }
+  .ev-right svg, .toast { transition: none; }
+}
+</style>
 </head>
 <body>
 
-  <header>
-    <div class="brand">
-      <h1>CARDIOLAB 3.0</h1>
-      <span>Simulador Farmacológico Hemodinámico</span>
-    </div>
-    <div class="header-actions">
-      <!-- Toggle de Modos: Inmediato (Default) vs En Vivo -->
-      <div class="mode-switch-wrap">
-        <button class="mode-btn active" id="btnModeImmediate" title="Calcula y muestra la curva completa al inyectar">⚡ Inmediato</button>
-        <button class="mode-btn" id="btnModeLive" title="Trazado continuo en tiempo real">⏱ En Vivo</button>
-      </div>
-
-      <div style="display:flex; align-items:center; gap:6px;">
-        <span class="status-badge" id="statusDot"></span>
-        <span style="font-size:0.75rem; font-weight:700; color:var(--c-dark-teal)" id="timeDisplay">00:00.0</span>
-      </div>
-
-      <button class="btn-glass" id="btnTogglePlay" style="display:none;" aria-label="Pausar / Reanudar">
-        <span id="playIcon">⏸</span> <span id="playText">Pausar</span>
-      </button>
-      <button class="btn-glass btn-danger" id="btnReset" aria-label="Reiniciar">
-        <span>🔄</span> <span>Reiniciar</span>
-      </button>
-      <button class="btn-glass" id="btnExportCSV" aria-label="Exportar CSV">
-        <span>📥</span> <span>CSV</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- Pestañas móviles -->
-  <nav class="mobile-nav-tabs" id="mobileTabs">
-    <button class="mobile-tab-btn active" data-target="polygraph">📈 Gráfica & Métricas</button>
-    <button class="mobile-tab-btn" data-target="controls">💉 Fármacos & Historial</button>
+<header class="appbar">
+  <div class="brand">
+    <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--accent)"/><path d="M4 17h6l2.5-6 4 12 3-9 1.5 3H28" fill="none" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="brand-name">Cardio<span>Lab</span></span>
+  </div>
+  <nav class="tabbar" id="tabbar" role="tablist" aria-label="Secciones">
+    <button role="tab" id="t-registro" aria-controls="tab-registro" aria-selected="true" data-tab="registro">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h4l2-5 4 10 2.5-7 1.5 2H21"/></svg>
+      <span>Registro</span>
+    </button>
+    <button role="tab" id="t-fisio" aria-controls="tab-fisio" aria-selected="false" data-tab="fisio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.1A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20Z"/><path d="M7.5 12h2.5l1-2 2 4 1-2h2.5"/></svg>
+      <span>Fisiología</span>
+    </button>
+    <button role="tab" id="t-historial" aria-controls="tab-historial" aria-selected="false" data-tab="historial">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.3"/><circle cx="4.5" cy="12" r="1.3"/><circle cx="4.5" cy="18" r="1.3"/></svg>
+      <span>Historial</span>
+      <span class="badge" id="histBadge" hidden>0</span>
+    </button>
+    <button role="tab" id="t-sesion" aria-controls="tab-sesion" aria-selected="false" data-tab="sesion">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>
+      <span>Sesión</span>
+    </button>
   </nav>
+  <div class="spacer"></div>
+  <div class="seg" role="group" aria-label="Modo de simulación" id="modeSeg">
+    <button type="button" data-mode="imm" aria-pressed="true">Inmediato</button>
+    <button type="button" data-mode="live" aria-pressed="false">En vivo</button>
+  </div>
+  <div class="menu-wrap">
+    <button class="icon-btn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-label="Más opciones">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5.5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="18.5" r="1.8"/></svg>
+    </button>
+    <div class="menu" id="menu" role="menu" hidden>
+      <button role="menuitem" data-act="theme">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+        <span id="themeLabel">Tema: automático</span>
+      </button>
+      <hr>
+      <button role="menuitem" data-act="csv-points">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+        Exportar registro (CSV)
+      </button>
+      <button role="menuitem" data-act="csv-events">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+        Exportar administraciones (CSV)
+      </button>
+      <hr>
+      <button role="menuitem" data-act="reset" class="danger">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4h4"/></svg>
+        Reiniciar sesión
+      </button>
+    </div>
+  </div>
+</header>
 
-  <main>
-    <!-- Viewport: Polígrafo y Telemetría -->
-    <section class="viewport-col" id="viewSection">
-      <div class="liquid-glass telemetry-bar">
-        <div class="metric-item">
-          <span class="metric-label">PA (SIS / DIA)</span>
-          <div class="metric-value-wrap">
-            <span class="metric-value" id="valSysDia" style="color:var(--c-burnt-orange)">120 / 80</span>
-            <span class="metric-unit">mmHg</span>
+<main>
+  <!-- Registro -->
+  <section class="tab" id="tab-registro" role="tabpanel" aria-labelledby="t-registro">
+    <div class="cols">
+      <div class="stack">
+        <div class="vitals" aria-live="off">
+          <div class="vital">
+            <div class="vital-label"><i style="background:var(--pres)"></i>Presión<span class="u">, mmHg</span></div>
+            <div class="vital-value"><span id="vSys">120</span>/<span id="vDia">80</span><span class="vital-unit">mmHg</span></div>
+          </div>
+          <div class="vital">
+            <div class="vital-label"><i style="background:var(--pres)"></i>PAM<span class="u">, mmHg</span></div>
+            <div class="vital-value"><span id="vMap">93</span><span class="vital-unit">mmHg</span></div>
+          </div>
+          <div class="vital">
+            <div class="vital-label"><i style="background:var(--hr)"></i>FC<span class="u">, lpm</span></div>
+            <div class="vital-value"><span id="vHr">72</span><span class="vital-unit">lpm</span></div>
+          </div>
+          <div class="vital">
+            <div class="vital-label">Tiempo</div>
+            <div class="vital-value" id="vT">0:05</div>
           </div>
         </div>
-        <div class="metric-item">
-          <span class="metric-label">PAM</span>
-          <div class="metric-value-wrap">
-            <span class="metric-value" id="valPAM" style="color:var(--c-dark-teal)">93.3</span>
-            <span class="metric-unit">mmHg</span>
-          </div>
-        </div>
-        <div class="metric-item">
-          <span class="metric-label">FC</span>
-          <div class="metric-value-wrap">
-            <span class="metric-value" id="valFC" style="color:var(--c-ocean-teal)">72</span>
-            <span class="metric-unit">lpm</span>
-          </div>
-        </div>
-        <div class="metric-item">
-          <span class="metric-label">Barorreflejo</span>
-          <div class="metric-value-wrap">
-            <span class="metric-value" id="valBaro" style="color:var(--c-flame-rust)">Activo</span>
-            <span class="metric-unit">SNA</span>
-          </div>
-        </div>
-      </div>
 
-      <div class="liquid-glass chart-panel">
-        <div class="chart-panel-header">
-          <div class="chart-legends">
-            <div class="legend-tag">
-              <span class="legend-bullet" style="background:var(--c-burnt-orange)"></span>
-              <span style="color:var(--c-burnt-orange)">PA Sistólica</span>
+        <div class="card chart-card">
+          <div class="chart-top">
+            <div class="legend" aria-label="Leyenda">
+              <span class="lg"><i class="sw-band"></i>SIS–DIA</span>
+              <span class="lg"><i class="sw-line pres"></i>PAM</span>
+              <span class="lg"><i class="sw-line hr"></i>FC</span>
             </div>
-            <div class="legend-tag">
-              <span class="legend-bullet" style="background:var(--c-flame-rust)"></span>
-              <span style="color:var(--c-flame-rust)">PA Diastólica</span>
-            </div>
-            <div class="legend-tag">
-              <span class="legend-bullet" style="background:var(--c-ocean-teal)"></span>
-              <span style="color:var(--c-ocean-teal)">Frecuencia Cardíaca</span>
+            <div class="seg small" role="group" aria-label="Intervalo visible" id="rangeSeg">
+              <button type="button" data-span="60">1 min</button>
+              <button type="button" data-span="300">5 min</button>
+              <button type="button" data-span="all">Todo</button>
             </div>
           </div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span id="scaleIndicator" style="font-size:0.72rem; font-weight:700; color:var(--c-dark-teal); background:rgba(0,95,115,0.08); padding:3px 8px; border:1px solid var(--glass-border);">Escala: 20-240</span>
+          <div class="live-bar" id="liveBar" hidden>
+            <button type="button" class="play-btn" id="playBtn" aria-pressed="true">
+              <svg id="playIcon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="2.5" width="3.4" height="11" rx="1"/><rect x="9.6" y="2.5" width="3.4" height="11" rx="1"/></svg>
+              <span id="playLabel">Pausar</span>
+            </button>
+            <div class="seg small" role="group" aria-label="Velocidad" id="speedSeg">
+              <button type="button" data-speed="1">1×</button>
+              <button type="button" data-speed="5">5×</button>
+              <button type="button" data-speed="20">20×</button>
+              <button type="button" data-speed="60">60×</button>
+            </div>
           </div>
-        </div>
-
-        <div class="canvas-container">
-          <canvas id="polygraphCanvas"></canvas>
-        </div>
-      </div>
-    </section>
-
-    <!-- Controles -->
-    <aside class="controls-col" id="controlsSection">
-      <div class="liquid-glass panel-box">
-        <div class="panel-title">
-          <span>Administración I.V.</span>
-        </div>
-
-        <div class="drug-grid" id="drugGrid"></div>
-
-        <!-- Entrada de Dosis con Selector de Unidades -->
-        <div class="dose-input-section">
-          <label style="font-size:0.72rem; font-weight:800; color:var(--c-dark-teal); letter-spacing:0.5px">DOSIS Y UNIDAD</label>
-          <div class="input-row">
-            <input type="number" inputmode="decimal" step="any" min="0.01" class="dose-field" id="inputDose" value="10">
-            <select class="unit-selector" id="unitSelect" title="Cambiar unidad de dosis">
-              <option value="µg">µg</option>
-              <option value="mg">mg</option>
-              <option value="µg/kg">µg/kg</option>
-              <option value="mg/kg">mg/kg</option>
-            </select>
+          <div class="chart-wrap" id="chartWrap">
+            <canvas id="chart" role="img" aria-label="Registro de presión arterial y frecuencia cardíaca"></canvas>
+            <div class="tip" id="tip" hidden></div>
           </div>
-
-          <div class="stepper-row">
-            <button class="btn-step" data-val="1">1</button>
-            <button class="btn-step" data-val="5">5</button>
-            <button class="btn-step" data-val="10">10</button>
-            <button class="btn-step" data-val="50">50</button>
+          <div class="mini-wrap" id="miniWrap">
+            <canvas id="mini" role="slider" tabindex="0" aria-label="Minivista de la sesión completa. Arrastra para desplazarte" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></canvas>
           </div>
-        </div>
-
-        <button class="btn-inject-big" id="btnInject">
-          <span>💉</span> Inyectar Dosis
-        </button>
-      </div>
-
-      <!-- Historial -->
-      <div class="liquid-glass panel-box" style="flex:1;">
-        <div class="panel-title">
-          <span>Historial de Respuestas</span>
-          <span style="font-size:0.72rem; color:var(--text-muted); font-weight:700;" id="histCount">0 Eventos</span>
-        </div>
-
-        <div class="history-list" id="historyList">
-          <div style="text-align:center; padding:24px 10px; color:var(--text-muted); font-size:0.78rem; font-weight:600;">
-            No hay inyecciones registradas aún.
+          <div class="chart-foot">
+            <span id="viewLabel" class="num">Sesión completa</span>
+            <button type="button" class="link-btn" id="toEnd" hidden>Ir al final</button>
           </div>
         </div>
       </div>
-    </aside>
-  </main>
+      <div class="slot" id="slot-registro"></div>
+    </div>
+  </section>
 
-  <script>
-    /* ==========================================================
-       1. FÁRMACOS Y CONFIGURACIÓN INICIAL
-       ========================================================== */
-    const DRUGS = [
-      { id: 'adr', name: 'Adrenalina', mech: 'Agonista α1, β1, β2', defaultUnit: 'µg', defaultDose: 10, color: '#CA6702' },
-      { id: 'nor', name: 'Noradrenalina', mech: 'Agonista α1, β1', defaultUnit: 'µg', defaultDose: 10, color: '#EE9B00' },
-      { id: 'iso', name: 'Isoprenalina', mech: 'Agonista β1, β2', defaultUnit: 'µg', defaultDose: 5, color: '#0A9396' },
-      { id: 'ach', name: 'Acetilcolina', mech: 'Agonista Muscarínico M2', defaultUnit: 'µg', defaultDose: 10, color: '#AE2012' },
-      { id: 'atr', name: 'Atropina', mech: 'Antagonista M2', defaultUnit: 'mg', defaultDose: 1, color: '#9B2226' },
-      { id: 'phe', name: 'Fentolamina', mech: 'Antagonista α1', defaultUnit: 'mg', defaultDose: 2, color: '#005F73' },
-      { id: 'pro', name: 'Propranolol', mech: 'Antagonista β1, β2', defaultUnit: 'mg', defaultDose: 2, color: '#0A9396' }
-    ];
+  <!-- Fisiología -->
+  <section class="tab" id="tab-fisio" role="tabpanel" aria-labelledby="t-fisio" hidden>
+    <div class="cols">
+      <div class="fis-grid">
+        <div class="card replay wide">
+          <div>
+            <div class="replay-title" id="rpTitle">Estado actual</div>
+            <div class="replay-sub" id="rpSub">t 0:05</div>
+          </div>
+          <button type="button" class="btn-secondary" id="rpBtn" disabled>Repetir respuesta</button>
+          <div class="replay-bar"><i id="rpProg"></i></div>
+        </div>
 
-    let selectedDrug = DRUGS[0];
-    let simulationMode = 'immediate'; // 'immediate' (default) o 'live'
-    let isRunning = true;
-    let simTime = 0;
+        <div class="card wide">
+          <div class="figs">
+            <figure class="fig">
+              <svg id="heartSvg" viewBox="0 0 200 200" aria-hidden="true">
+                <g id="vessels">
+                  <path id="pulmo" d="M86 74 C 80 52 68 40 50 36" fill="none" stroke="var(--vessel-2)" stroke-width="15" stroke-linecap="round"/>
+                  <path d="M120 40 L 116 16 M134 32 L 134 10 M148 34 L 156 14" stroke="var(--vessel)" stroke-width="7" stroke-linecap="round"/>
+                  <path id="aorta" d="M104 76 C 104 44 120 28 140 30 C 160 32 168 50 160 70 L 154 90" fill="none" stroke="var(--vessel)" stroke-width="17" stroke-linecap="round"/>
+                  <path id="aortaFlow" d="M104 76 C 104 44 120 28 140 30 C 160 32 168 50 160 70 L 154 90" fill="none" stroke="#fff" stroke-opacity="0" stroke-width="6" stroke-linecap="round"/>
+                </g>
+                <g id="heartBody">
+                  <g transform="rotate(-14 100 122)">
+                    <path d="M100 188 C 62 162 30 130 32 96 C 34 68 56 54 78 58 C 90 60 97 68 100 78 C 104 66 114 58 128 57 C 152 56 170 76 166 104 C 162 138 132 166 100 188 Z" fill="var(--heart)"/>
+                    <path d="M100 188 C 132 166 162 138 166 104 C 168 92 166 82 160 74 C 162 112 140 150 100 188 Z" fill="var(--heart-dark)" opacity=".55"/>
+                    <path d="M112 80 C 108 110 104 140 92 172" fill="none" stroke="var(--heart-dark)" stroke-width="3.5" stroke-linecap="round" opacity=".9"/>
+                    <ellipse cx="66" cy="98" rx="11" ry="22" transform="rotate(-28 66 98)" fill="#fff" opacity=".2"/>
+                  </g>
+                </g>
+              </svg>
+              <figcaption>
+                <div class="fig-title">Corazón</div>
+                <div class="fig-val"><span id="fHr">72</span> <small>lpm</small></div>
+                <div class="fig-sub">Contractilidad ×<span id="fContr">1,00</span></div>
+              </figcaption>
+            </figure>
+            <figure class="fig">
+              <svg id="artSvg" viewBox="0 0 200 200" aria-hidden="true">
+                <circle cx="100" cy="100" r="92" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.5"/>
+                <circle id="artMedia" cx="100" cy="100" r="70" fill="none" stroke="var(--wall)" stroke-width="28"/>
+                <g id="artCells"></g>
+                <circle id="artLumen" cx="100" cy="100" r="56" fill="var(--blood)"/>
+                <g id="artRbc"></g>
+                <circle id="artEndo" cx="100" cy="100" r="56" fill="none" stroke="var(--surface)" stroke-opacity=".7" stroke-width="2"/>
+              </svg>
+              <figcaption>
+                <div class="fig-title">Arteriola</div>
+                <div class="fig-val">×<span id="fSvr">1,00</span> <small>RVP</small></div>
+                <div><span class="state-pill" id="fSvrState">Tono basal</span></div>
+              </figcaption>
+            </figure>
+          </div>
+          <div class="derived">
+            <div><span>Gasto cardíaco</span><b><span id="fCo">5,0</span> <small>L/min</small></b></div>
+            <div><span>Vol. sistólico</span><b><span id="fSv">70</span> <small>mL</small></b></div>
+            <div><span>PAM</span><b><span id="fMap">93</span> <small>mmHg</small></b></div>
+            <div><span>Presión de pulso</span><b><span id="fPp">40</span> <small>mmHg</small></b></div>
+          </div>
+        </div>
 
-    let systolic = 120.0;
-    let diastolic = 80.0;
-    let PAM = 93.3;
-    let FC = 72.0;
-    let baroTone = 0.0;
+        <div class="card wide">
+          <div class="card-head">
+            <h3 class="card-title">Onda de pulso</h3>
+            <span class="card-sub num" id="fPulse">120/80 mmHg</span>
+          </div>
+          <div class="pulse-wrap"><canvas id="pulse" aria-hidden="true"></canvas></div>
+        </div>
 
-    let activeConcentrations = {};
-    DRUGS.forEach(d => activeConcentrations[d.id] = 0);
+        <div class="card">
+          <div class="card-head"><h3 class="card-title">Tono autónomo</h3></div>
+          <div class="tone-row">
+            <div class="tone-name"><i style="background:var(--sym)"></i>Simpático</div>
+            <div class="tone-lane"><canvas id="laneSym" aria-hidden="true"></canvas></div>
+            <div class="tone-meter"><div class="meter"><i id="mSym" style="background:var(--sym)"></i><b></b></div><span class="tone-val" id="vSym">×1,00 basal</span></div>
+          </div>
+          <div class="tone-row">
+            <div class="tone-name"><i style="background:var(--vag)"></i>Vagal</div>
+            <div class="tone-lane"><canvas id="laneVag" aria-hidden="true"></canvas></div>
+            <div class="tone-meter"><div class="meter"><i id="mVag" style="background:var(--vag)"></i><b></b></div><span class="tone-val" id="vVag">×1,00 basal</span></div>
+          </div>
+          <p class="tone-note" id="toneNote">La marca indica el tono basal. El barorreflejo sube el tono simpático y baja el vagal cuando la presión cae, y al revés cuando sube.</p>
+        </div>
 
-    const historyPoints = [];
-    const injectionEvents = [];
-    const maxPointsOnCanvas = 450;
+        <div class="card">
+          <div class="card-head"><h3 class="card-title">Receptores</h3><span class="card-sub">Activación</span></div>
+          <div class="rec-list" id="recList"></div>
+          <div class="subhead">Fármacos presentes</div>
+          <div class="chips" id="activeDrugs"></div>
+          <div id="otherBlocksWrap" hidden>
+            <div class="subhead">Otros efectos</div>
+            <div class="chips" id="otherBlocks"></div>
+          </div>
+        </div>
+      </div>
+      <div class="slot" id="slot-fisio"></div>
+    </div>
+  </section>
 
-    let currentYMin = 20.0;
-    let currentYMax = 240.0;
-    const defaultYMin = 20.0;
-    const defaultYMax = 240.0;
+  <!-- Historial -->
+  <section class="tab" id="tab-historial" role="tabpanel" aria-labelledby="t-historial" hidden>
+    <div class="narrow">
+      <div class="hist-top">
+        <div class="hist-count" id="histCount">Sin administraciones</div>
+        <div class="seg small" role="group" aria-label="Orden" id="orderSeg">
+          <button type="button" data-order="desc" aria-pressed="true">Recientes primero</button>
+          <button type="button" data-order="asc" aria-pressed="false">Desde el inicio</button>
+        </div>
+      </div>
+      <div class="ev-list" id="evList"></div>
+    </div>
+  </section>
 
-    // Crear línea de base inicial de 5 segundos
-    for (let i = 0; i < 50; i++) {
-      simTime += 0.1;
-      historyPoints.push({ t: simTime, sys: 120, dia: 80, pam: 93.3, fc: 72 });
+  <!-- Sesión -->
+  <section class="tab" id="tab-sesion" role="tabpanel" aria-labelledby="t-sesion" hidden>
+    <div class="narrow stack" id="sessionBox"></div>
+  </section>
+</main>
+
+<!-- Tarjeta de administración (se mueve entre Registro y Fisiología) -->
+<template id="adminTpl">
+  <section class="card admin" id="admin" aria-labelledby="adminTitle">
+    <h2 class="card-title" id="adminTitle">Administrar</h2>
+    <button type="button" class="drug-pick" id="drugPick" aria-haspopup="dialog">
+      <span class="dp-cat" id="dpCat"></span>
+      <span class="dp-name" id="dpName"></span>
+      <span class="dp-mech" id="dpMech"></span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg>
+    </button>
+    <p class="dp-desc" id="dpDesc"></p>
+    <div class="dose-grid" id="doseGrid">
+      <label class="field"><span>Dosis</span><input id="dose" type="text" inputmode="decimal" autocomplete="off" aria-describedby="doseEq doseErr"></label>
+      <label class="field"><span>Unidad</span>
+        <select id="unit"><option value="µg">µg</option><option value="mg">mg</option><option value="µg/kg">µg/kg</option><option value="mg/kg">mg/kg</option></select>
+      </label>
+      <label class="field" id="weightField" hidden><span>Peso, kg</span><input id="weight" type="text" inputmode="decimal" autocomplete="off"></label>
+    </div>
+    <div class="dose-chips" role="group" aria-label="Ajustes rápidos de dosis">
+      <button type="button" class="chip-btn" data-mul="0.1">÷10</button>
+      <button type="button" class="chip-btn" data-mul="0.5">÷2</button>
+      <button type="button" class="chip-btn" data-mul="reset">Habitual</button>
+      <button type="button" class="chip-btn" data-mul="2">×2</button>
+      <button type="button" class="chip-btn" data-mul="10">×10</button>
+    </div>
+    <p class="dose-eq" id="doseEq"></p>
+    <p class="field-error" id="doseErr" role="alert" hidden></p>
+    <button type="button" class="btn-primary" id="giveBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 2 4 4M17 7l3-3M19 9 8.7 19.3a1 1 0 0 1-1.4 0l-2.6-2.6a1 1 0 0 1 0-1.4L15 5M9 11l4 4M5 19l-3 3M14 4l6 6"/></svg>
+      <span>Administrar</span>
+    </button>
+    <p class="hint" id="modeHint"></p>
+  </section>
+</template>
+
+<!-- Selector de fármacos -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-backdrop" data-close></div>
+  <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-head">
+      <h2 id="sheetTitle">Elegir fármaco</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Cerrar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <label class="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input id="drugSearch" type="search" placeholder="Nombre, receptor o mecanismo" autocomplete="off" aria-label="Buscar fármaco">
+    </label>
+    <div class="cat-chips" id="catChips" role="group" aria-label="Categorías"></div>
+    <div class="drug-list" id="drugList" role="listbox" aria-label="Fármacos"></div>
+  </div>
+</div>
+
+<dialog id="resetDlg" aria-labelledby="resetTitle">
+  <h2 id="resetTitle">¿Reiniciar la sesión?</h2>
+  <p>Se borran el registro y el historial de administraciones. Si quieres conservarlos, exporta antes el CSV.</p>
+  <div class="actions">
+    <button type="button" class="btn-secondary" value="cancel" id="resetCancel">Cancelar</button>
+    <button type="button" class="btn-danger" id="resetOk">Reiniciar</button>
+  </div>
+</dialog>
+
+<div class="toast hide" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ==========================================================
+   CardioLab · Motor farmacológico y hemodinámico
+   Modelo de receptores (Gaddum/Schild), tono autónomo basal,
+   barorreflejo por vía simpática y vagal, y gasto cardíaco.
+   Las concentraciones se expresan como cantidad en el organismo (µg).
+   ========================================================== */
+(function (root) {
+  'use strict';
+
+  const DT = 0.1;
+  const BASE = { map: 93.3, hr: 72, sv: 70, pp: 40 };
+
+  const CATEGORIES = [
+    { id: 'ady', name: 'Agonistas adrenérgicos' },
+    { id: 'bla', name: 'Antagonistas adrenérgicos' },
+    { id: 'col', name: 'Colinérgicos' },
+    { id: 'ind', name: 'Indirectos y moduladores' },
+    { id: 'gan', name: 'Ganglionares' },
+    { id: 'vas', name: 'Vasoactivos y otros' }
+  ];
+
+  // ag = agonismo (EC50, µg) · ant = antagonismo competitivo (KB, µg) · inh = inhibición no competitiva (IC50, µg)
+  const DRUGS = [
+    // Agonistas adrenérgicos
+    { id: 'adr', name: 'Adrenalina', cat: 'ady', mech: 'Agonista α1, α2, β1, β2', unit: 'µg', dose: 10, t12: 20, onset: 2.5, netSub: true,
+      ag: { a1: 7, a2: 20, b1: 6, b2: 5 },
+      desc: 'Estimula β1 (FC y contractilidad), β2 (vasodilatación muscular) y α1 (vasoconstricción). A dosis bajas domina β2 y la diastólica puede bajar.' },
+    { id: 'nor', name: 'Noradrenalina', cat: 'ady', mech: 'Agonista α1, α2, β1', unit: 'µg', dose: 10, t12: 20, onset: 2.5, netSub: true,
+      ag: { a1: 8, a2: 14, b1: 30, b2: 400 },
+      desc: 'Vasoconstricción α1 potente con poca acción β2. Sube sistólica y diastólica; el barorreflejo vagal suele producir bradicardia refleja.' },
+    { id: 'iso', name: 'Isoprenalina', cat: 'ady', mech: 'Agonista β1, β2', unit: 'µg', dose: 5, t12: 25, onset: 2.5,
+      ag: { b1: 2, b2: 1.5 },
+      desc: 'Agonista β puro. Taquicardia y aumento de contractilidad; la vasodilatación β2 baja la diastólica y la PAM.' },
+    { id: 'phe', name: 'Fenilefrina', cat: 'ady', mech: 'Agonista α1 selectivo', unit: 'µg', dose: 100, t12: 60, onset: 3,
+      ag: { a1: 60 },
+      desc: 'Vasoconstricción α1 pura. Sube la presión y provoca bradicardia refleja mediada por el vago.' },
+    { id: 'dop', name: 'Dopamina', cat: 'ady', mech: 'Agonista D1, β1, α1 (dosis-dependiente)', unit: 'µg', dose: 200, t12: 25, onset: 3, netSub: true,
+      ag: { d1: 100, b1: 150, a1: 700 },
+      desc: 'A dosis baja actúa en D1 (vasodilatación renal y esplácnica), a dosis media en β1 y a dosis alta en α1.' },
+    { id: 'dob', name: 'Dobutamina', cat: 'ady', mech: 'Agonista β1 preferente', unit: 'µg', dose: 250, t12: 40, onset: 3,
+      ag: { b1: 120, b2: 900, a1: 1500 },
+      desc: 'Inotrópico β1. Aumenta contractilidad y volumen sistólico con cambios modestos de la resistencia periférica.' },
+    { id: 'sal', name: 'Salbutamol', cat: 'ady', mech: 'Agonista β2 selectivo', unit: 'µg', dose: 100, t12: 120, onset: 4,
+      ag: { b2: 35, b1: 600 },
+      desc: 'Vasodilatación β2 que baja la diastólica; la taquicardia es sobre todo refleja, con algo de β1 directo.' },
+    { id: 'clo', name: 'Clonidina', cat: 'ady', mech: 'Agonista α2 (central y periférico)', unit: 'µg', dose: 150, t12: 900, onset: 3, cns: 30,
+      ag: { a2: 60, a2c: 40 },
+      desc: 'Respuesta bifásica: primero una subida breve por α2 vascular, después hipotensión y bradicardia al reducir el tono simpático central.' },
+
+    // Antagonistas adrenérgicos
+    { id: 'phn', name: 'Fentolamina', cat: 'bla', mech: 'Antagonista α1 y α2', unit: 'mg', dose: 2, t12: 400, onset: 6,
+      ant: { a1: 25, a2: 25 },
+      desc: 'Bloquea la vasoconstricción α1 (baja la presión) y el autorreceptor α2, lo que aumenta la liberación de noradrenalina y la taquicardia refleja.' },
+    { id: 'prz', name: 'Prazosina', cat: 'bla', mech: 'Antagonista α1 selectivo', unit: 'mg', dose: 1, t12: 900, onset: 8,
+      ant: { a1: 8 },
+      desc: 'Bloqueo α1 selectivo. Hipotensión con menos taquicardia refleja que la fentolamina porque respeta α2.' },
+    { id: 'pro', name: 'Propranolol', cat: 'bla', mech: 'Antagonista β1 y β2', unit: 'mg', dose: 2, t12: 900, onset: 6,
+      ant: { b1: 15, b2: 15 },
+      desc: 'Bloqueo β no selectivo. Reduce la FC basal y anula las respuestas β1 y β2 de los agonistas.' },
+    { id: 'met', name: 'Metoprolol', cat: 'bla', mech: 'Antagonista β1 selectivo', unit: 'mg', dose: 5, t12: 900, onset: 6,
+      ant: { b1: 40, b2: 1500 },
+      desc: 'Bloqueo β1 cardioselectivo. Baja la FC pero conserva la vasodilatación β2.' },
+    { id: 'lab', name: 'Labetalol', cat: 'bla', mech: 'Antagonista α1, β1, β2', unit: 'mg', dose: 20, t12: 900, onset: 6,
+      ant: { a1: 1500, b1: 300, b2: 600 },
+      desc: 'Bloqueo mixto α1 y β. Baja la presión sin taquicardia refleja.' },
+
+    // Colinérgicos
+    { id: 'ach', name: 'Acetilcolina', cat: 'col', mech: 'Agonista muscarínico (y nicotínico a dosis altas)', unit: 'µg', dose: 10, t12: 4, onset: 1.5, ache: true,
+      ag: { m: 6, n: 150 },
+      desc: 'M2 cardíaco (bradicardia) y M3 endotelial (vasodilatación por NO). Se hidroliza muy rápido por la acetilcolinesterasa.' },
+    { id: 'neo', name: 'Neostigmina', cat: 'col', mech: 'Inhibidor de acetilcolinesterasa', unit: 'mg', dose: 0.5, t12: 900, onset: 8,
+      inh: { ache: 100 },
+      desc: 'Impide la hidrólisis de la acetilcolina: potencia y prolonga la acetilcolina exógena y aumenta el tono vagal.' },
+    { id: 'atr', name: 'Atropina', cat: 'col', mech: 'Antagonista muscarínico', unit: 'mg', dose: 1, t12: 1200, onset: 4,
+      ant: { m: 0.5 },
+      desc: 'Bloquea M2 y M3. Elimina el tono vagal (taquicardia) y las respuestas muscarínicas a la acetilcolina.' },
+
+    // Indirectos y moduladores
+    { id: 'tyr', name: 'Tiramina', cat: 'ind', mech: 'Liberador de noradrenalina', unit: 'µg', dose: 500, t12: 40, onset: 4,
+      ag: { net: 250 },
+      desc: 'Entra en la terminal por el transportador NET y desplaza la noradrenalina almacenada. Necesita NET funcional y depósitos llenos.' },
+    { id: 'eph', name: 'Efedrina', cat: 'ind', mech: 'Mixto: liberador + agonista α/β', unit: 'mg', dose: 10, t12: 600, onset: 5,
+      ag: { a1: 40000, b1: 20000, b2: 30000, net: 6000 },
+      desc: 'Libera noradrenalina y además activa receptores α y β de forma directa, por lo que resiste parcialmente a la reserpina.' },
+    { id: 'coc', name: 'Cocaína', cat: 'ind', mech: 'Bloqueador de recaptación (NET)', unit: 'mg', dose: 2, t12: 600, onset: 5,
+      ant: { net: 150 },
+      desc: 'Bloquea NET. Potencia las catecolaminas que se recaptan (noradrenalina, adrenalina) y anula a los liberadores como la tiramina.' },
+    { id: 'res', name: 'Reserpina', cat: 'ind', mech: 'Depleción vesicular (VMAT)', unit: 'mg', dose: 1, t12: 3600, onset: 10,
+      inh: { res: 50 },
+      desc: 'Vacía los depósitos de noradrenalina (efecto acelerado en el simulador). Reduce el tono simpático y anula a los simpaticomiméticos indirectos.' },
+
+    // Ganglionares
+    { id: 'nic', name: 'Nicotina', cat: 'gan', mech: 'Agonista nicotínico ganglionar', unit: 'µg', dose: 100, t12: 120, onset: 2,
+      ag: { n: 50 },
+      desc: 'Estimula ganglios simpáticos, parasimpáticos y médula suprarrenal. El efecto neto suele ser presor con cambios variables de FC.' },
+    { id: 'hex', name: 'Hexametonio', cat: 'gan', mech: 'Bloqueador ganglionar', unit: 'mg', dose: 10, t12: 900, onset: 5,
+      ant: { n: 150 },
+      desc: 'Interrumpe la transmisión ganglionar simpática y parasimpática: baja la presión y suprime todos los reflejos barorreceptores.' },
+
+    // Vasoactivos y otros
+    { id: 'his', name: 'Histamina', cat: 'vas', mech: 'Agonista H1', unit: 'µg', dose: 10, t12: 15, onset: 2,
+      ag: { h1: 4 },
+      desc: 'Vasodilatación H1 dependiente de endotelio: hipotensión con taquicardia refleja.' },
+    { id: 'dph', name: 'Difenhidramina', cat: 'vas', mech: 'Antagonista H1', unit: 'mg', dose: 20, t12: 1200, onset: 6,
+      ant: { h1: 150 },
+      desc: 'Bloqueo H1 competitivo. Sin efecto hemodinámico propio relevante; anula la hipotensión por histamina.' },
+    { id: 'ang', name: 'Angiotensina II', cat: 'vas', mech: 'Agonista AT1', unit: 'µg', dose: 1, t12: 25, onset: 2,
+      ag: { at1: 0.5 },
+      desc: 'Vasoconstrictor muy potente vía AT1. Hipertensión con bradicardia refleja.' },
+    { id: 'los', name: 'Losartán', cat: 'vas', mech: 'Antagonista AT1', unit: 'mg', dose: 10, t12: 1800, onset: 10,
+      ant: { at1: 120 },
+      desc: 'Bloquea AT1. Baja ligeramente la presión al retirar el tono angiotensinérgico basal y anula la respuesta a angiotensina II.' },
+    { id: 'avp', name: 'Vasopresina', cat: 'vas', mech: 'Agonista V1', unit: 'µg', dose: 2, t12: 120, onset: 3,
+      ag: { v1: 1.5 },
+      desc: 'Vasoconstricción V1 independiente de receptores adrenérgicos: resiste a los bloqueadores α.' },
+    { id: 'snp', name: 'Nitroprusiato', cat: 'vas', mech: 'Donador de NO (arterial y venoso)', unit: 'µg', dose: 50, t12: 10, onset: 1.5,
+      ag: { no: 30, ven: 40 },
+      desc: 'Libera NO directamente en el músculo liso: vasodilatación arterial y venosa breve con taquicardia refleja.' },
+    { id: 'ntg', name: 'Nitroglicerina', cat: 'vas', mech: 'Donador de NO (venoso preferente)', unit: 'µg', dose: 200, t12: 60, onset: 2,
+      ag: { no: 300, ven: 70 },
+      desc: 'Venodilatación predominante: reduce la precarga y el volumen sistólico más que la resistencia arterial.' },
+    { id: 'ver', name: 'Verapamilo', cat: 'vas', mech: 'Bloqueador de canales de Ca²⁺ tipo L', unit: 'mg', dose: 5, t12: 1200, onset: 5,
+      inh: { ca: 4000 },
+      desc: 'Deprime el nodo sinusal y la contractilidad y relaja el músculo liso arterial. Hipotensión sin taquicardia refleja eficaz.' }
+  ];
+
+  const DRUG_BY_ID = {};
+  DRUGS.forEach(d => { DRUG_BY_ID[d.id] = d; });
+
+  const REC = ['a1', 'a2', 'b1', 'b2', 'm', 'n', 'h1', 'd1', 'v1', 'at1', 'no', 'ven', 'net', 'a2c'];
+  const REC_LABEL = {
+    a1: 'α1', a2: 'α2', b1: 'β1', b2: 'β2', m: 'M', m2: 'M2', m3: 'M3', n: 'N', h1: 'H1', d1: 'D1', v1: 'V1',
+    at1: 'AT1', no: 'NO', ven: 'Venoso', net: 'NET', a2c: 'α2 central', ca: 'Ca²⁺', ache: 'AChE', res: 'Depósitos'
+  };
+
+  // Tono endógeno en unidades de EC50
+  const ENDO = { a1: 0.55, a2: 0.3, b1: 0.28, m2: 0.9, at1: 0.25, g0: 3 };
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  function toMicrograms(dose, unit, weightKg) {
+    const w = weightKg > 0 ? weightKg : 70;
+    switch (unit) {
+      case 'µg': return dose;
+      case 'mg': return dose * 1000;
+      case 'µg/kg': return dose * w;
+      case 'mg/kg': return dose * w * 1000;
+      default: return dose;
+    }
+  }
+
+  /* Efectos: dado el estado, calcula estímulos, activaciones y determinantes hemodinámicos */
+  function computeEffects(s) {
+    const S = {}, shift = {};
+    REC.forEach(r => { S[r] = 0; shift[r] = 1; });
+    let caSum = 0, acheSum = 0, resSum = 0;
+
+    // Primero los moduladores no competitivos (afectan la potencia de otros)
+    for (const id in s.ce) {
+      const d = DRUG_BY_ID[id], c = s.ce[id];
+      if (!d.inh || c <= 1e-9) continue;
+      if (d.inh.ca) caSum += c / d.inh.ca;
+      if (d.inh.ache) acheSum += c / d.inh.ache;
+      if (d.inh.res) resSum += c / d.inh.res;
+    }
+    const Eca = caSum / (1 + caSum);
+    const Eache = acheSum / (1 + acheSum);
+    const Eres = resSum / (1 + resSum);
+
+    // Antagonismo competitivo
+    for (const id in s.ce) {
+      const d = DRUG_BY_ID[id], c = s.ce[id];
+      if (!d.ant || c <= 1e-9) continue;
+      for (const r in d.ant) shift[r] += c / d.ant[r];
+    }
+    const thNet = (shift.net - 1) / shift.net; // ocupación de NET por bloqueadores
+
+    // Agonismo exógeno
+    const netBoost = 1 + 0.9 * thNet;
+    for (const id in s.ce) {
+      const d = DRUG_BY_ID[id];
+      if (!d.ag) continue;
+      const c = s.ce[id];
+      if (c <= 1e-9 && !(d.cns && s.cns[id] > 1e-9)) continue;
+      const potency = d.ache ? (1 + 8 * Eache) : 1;
+      for (const r in d.ag) {
+        if (r === 'a2c') { S.a2c += (s.cns[id] || 0) / d.ag[r]; continue; }
+        let v = c / d.ag[r] * potency;
+        if (d.netSub && (r === 'a1' || r === 'a2' || r === 'b1')) v *= netBoost;
+        S[r] += v;
+      }
     }
 
-    /* ==========================================================
-       2. MOTOR FARMACODINÁMICO Y BARORREFLEJO
-       ========================================================== */
-    function updatePhysics(dt) {
-      simTime += dt;
+    const act = (r, extra) => { const st = S[r] + (extra || 0); return st / (st + shift[r]); };
 
-      for (let d of DRUGS) {
-        let conc = activeConcentrations[d.id];
-        if (conc > 0) {
-          let kel = (d.defaultUnit === 'mg') ? 0.025 : 0.18;
-          activeConcentrations[d.id] = Math.max(0, conc * Math.exp(-kel * dt));
+    // Ganglios
+    const gT = (ENDO.g0 / (ENDO.g0 + shift.n)) / (ENDO.g0 / (ENDO.g0 + 1));
+    const En = S.n / (S.n + shift.n); // estimulación nicotínica exógena
+    const Erel = S.net / (S.net + shift.net); // liberadores indirectos
+
+    // Autorreceptor α2 presináptico
+    const thA2 = (shift.a2 - 1) / shift.a2;
+    const Ea2exo = act('a2');
+    const presyn = (1 + 0.6 * thA2) * (1 - 0.35 * Ea2exo);
+
+    const store = s.store;
+    const P = store * (presyn * (gT * s.sym + 2.6 * En) + 2.5 * Erel);
+    const Pr = P * netBoost;
+    const Ad = 1.6 * En * store; // adrenalina suprarrenal
+    const V = (gT * s.vag + 1.0 * En) * (1 + 1.5 * Eache);
+
+    const Ea1 = act('a1', ENDO.a1 * Pr + 0.3 * Ad);
+    const Ea2 = act('a2', ENDO.a2 * Pr);
+    const Eb1 = act('b1', ENDO.b1 * Pr + 0.6 * Ad);
+    const Eb2 = act('b2', 0.8 * Ad);
+    const Em2 = (2 * S.m + ENDO.m2 * V) / (2 * S.m + ENDO.m2 * V + shift.m);
+    const Em3 = S.m / (S.m + shift.m);
+    const Eh1 = act('h1'), Ed1 = act('d1'), Ev1 = act('v1');
+    const Eat1 = act('at1', ENDO.at1);
+    const Eno = act('no'), Even = act('ven');
+    const Ea2c = S.a2c / (S.a2c + 1);
+
+    const hrf = (1 + 1.1 * Eb1) / (1 + 1.4 * Em2) * (1 - 0.7 * Eca);
+    const contr = (1 + 0.7 * Eb1) * (1 - 0.12 * Em2) * (1 - 0.35 * Eca);
+    const preload = (1 + 0.1 * Ea1) / (1 + 0.5 * Even);
+    const svrf = (1 + 1.8 * Ea1 + 0.8 * Ea2 + 1.5 * Ev1 + 1.7 * Eat1) /
+      ((1 + 1.0 * Eb2) * (1 + 0.9 * Em3) * (1 + 1.3 * Eno) * (1 + 0.9 * Eh1) * (1 + 0.5 * Ed1) * (1 + 0.6 * Eca));
+
+    const blk = r => (shift[r] - 1) / shift[r];
+    return {
+      hrf, contr, preload, svrf, Ea2c, Eres, Eache, Eca, gT,
+      E: { a1: Ea1, a2: Ea2, b1: Eb1, b2: Eb2, m2: Em2, m3: Em3, n: En, h1: Eh1, d1: Ed1, v1: Ev1, at1: Eat1, no: Eno, ven: Even, net: Erel, a2c: Ea2c },
+      B: { a1: blk('a1'), a2: blk('a2'), b1: blk('b1'), b2: blk('b2'), m: blk('m'), n: blk('n'), h1: blk('h1'), at1: blk('at1'), net: thNet, ca: Eca, ache: Eache, res: 1 - store },
+      shift
+    };
+  }
+
+  function freshState() {
+    return { t: 0, c: {}, ce: {}, cns: {}, sym: 1, vag: 1, store: 1, map: BASE.map, hr: BASE.hr };
+  }
+
+  const REF = computeEffects(freshState());
+  const CO0 = BASE.hr * BASE.sv;
+
+  function hemo(s, fx) {
+    const hrTarget = clamp(BASE.hr * fx.hrf / REF.hrf, 20, 280);
+    const fill = clamp(1 - (s.hr > BASE.hr ? 0.0075 : 0.004) * (s.hr - BASE.hr), 0.5, 1.2);
+    const sv = BASE.sv * (fx.contr / REF.contr) * (fx.preload / REF.preload) * fill;
+    const co = s.hr * sv;
+    const svr = fx.svrf / REF.svrf;
+    const mapTarget = clamp(BASE.map * (co / CO0) * svr, 15, 260);
+    return { hrTarget, sv, co, svr, mapTarget };
+  }
+
+  class Model {
+    constructor() {
+      this.s = freshState();
+      this.points = [];
+      this.events = [];
+      this.record();
+    }
+
+    activeDrugs(threshold) {
+      const out = [];
+      for (const id in this.s.ce) {
+        const d = DRUG_BY_ID[id];
+        const c = Math.max(this.s.ce[id], this.s.c[id] || 0);
+        const ref = d.ag ? Math.min(...Object.values(d.ag)) : d.ant ? Math.min(...Object.values(d.ant)) : Math.min(...Object.values(d.inh));
+        if (c / ref > (threshold || 0.15)) out.push({ id, rel: c / ref });
+      }
+      return out;
+    }
+
+    inject(drugId, micrograms, meta) {
+      const d = DRUG_BY_ID[drugId];
+      if (!d || !(micrograms > 0)) return null;
+      const s = this.s;
+      const fx = computeEffects(s);
+      const pre = this.points[this.points.length - 1];
+      s.c[drugId] = (s.c[drugId] || 0) + micrograms;
+      if (s.ce[drugId] === undefined) s.ce[drugId] = 0;
+      if (d.cns && s.cns[drugId] === undefined) s.cns[drugId] = 0;
+      const evt = Object.assign({
+        n: this.events.length + 1,
+        t: s.t,
+        drugId,
+        ug: micrograms,
+        pre: { sys: pre.sys, dia: pre.dia, map: pre.map, hr: pre.hr },
+        ctx: { B: Object.assign({}, fx.B), modifiers: this.activeDrugs(0.3).filter(a => a.id !== drugId || true) }
+      }, meta || {});
+      this.events.push(evt);
+      return evt;
+    }
+
+    step(dt) {
+      dt = dt || DT;
+      const s = this.s;
+      const fx0 = computeEffects(s);
+      // Farmacocinética: eliminación y compartimento efecto
+      for (const id in s.c) {
+        const d = DRUG_BY_ID[id];
+        let t12 = d.t12;
+        if (d.ache) t12 *= 1 + 9 * fx0.Eache;
+        s.c[id] *= Math.exp(-Math.LN2 / t12 * dt);
+        s.ce[id] += (s.c[id] - s.ce[id]) * (1 - Math.exp(-dt / d.onset));
+        if (d.cns) s.cns[id] += (s.c[id] - s.cns[id]) * (1 - Math.exp(-dt / d.cns));
+        if (s.c[id] < 1e-7 && s.ce[id] < 1e-7 && (!d.cns || s.cns[id] < 1e-7)) {
+          delete s.c[id]; delete s.ce[id]; delete s.cns[id];
         }
       }
+      const fx = computeEffects(s);
+      // Depósitos de noradrenalina (reserpina)
+      const storeTarget = 1 - 0.95 * fx.Eres;
+      s.store += (storeTarget - s.store) * (1 - Math.exp(-dt / (storeTarget < s.store ? 30 : 240)));
 
-      let phent = activeConcentrations['phe'];
-      let prop  = activeConcentrations['pro'];
-      let atrop = activeConcentrations['atr'];
+      // Barorreflejo
+      // La clonidina central desplaza el punto de ajuste del barorreflejo hacia abajo
+      const setPoint = BASE.map * (1 - 0.22 * fx.Ea2c);
+      const e = (s.map - setPoint) / BASE.map;
+      const symT = clamp((1 - (e > 0 ? 0.7 : 2.2) * e) / (1 + 1.5 * fx.Ea2c), 0.03, 3.5);
+      const vagT = clamp((1 + (e > 0 ? 6.0 : 2.5) * e) * (1 + 0.8 * fx.Ea2c), 0, 4);
+      s.sym += (symT - s.sym) * (1 - Math.exp(-dt / 4.0));
+      s.vag += (vagT - s.vag) * (1 - Math.exp(-dt / 1.0));
 
-      let a1_shift = 1.0 + (phent / 0.015);
-      let b1_shift = 1.0 + (prop / 0.012);
-      let b2_shift = 1.0 + (prop / 0.015);
-      let m2_shift = 1.0 + (atrop / 0.008);
+      const h = hemo(s, fx);
+      s.hr += (h.hrTarget - s.hr) * (1 - Math.exp(-dt / 1.0));
+      s.map += (h.mapTarget - s.map) * (1 - Math.exp(-dt / 1.5));
+      s.t = Math.round((s.t + dt) * 1000) / 1000;
+      this.record(fx, h);
+    }
 
-      let adr = activeConcentrations['adr'];
-      let nor = activeConcentrations['nor'];
-      let iso = activeConcentrations['iso'];
-      let ach = activeConcentrations['ach'];
-
-      let act_a1 = (adr * 1.0 + nor * 1.6) / a1_shift;
-      let e_a1 = act_a1 / (0.012 + act_a1);
-
-      let act_b1 = (adr * 1.2 + nor * 0.8 + iso * 2.5) / b1_shift;
-      let e_b1 = act_b1 / (0.009 + act_b1);
-
-      let act_b2 = (adr * 0.95 + iso * 2.2) / b2_shift;
-      let e_b2 = act_b2 / (0.013 + act_b2);
-
-      let act_m2 = ach / m2_shift;
-      let e_m2 = act_m2 / (0.007 + act_m2);
-
-      let targetRVP = 1.0 + (e_a1 * 1.4) - (e_b2 * 0.45) - (e_m2 * 0.25);
-      let targetSV  = 70.0 * (1.0 + (e_b1 * 0.6) - (e_m2 * 0.35));
-
-      let targetMAP = 93.3 * targetRVP * (targetSV / 70.0);
-      let mapDelta = targetMAP - 93.3;
-
-      let targetBaro = -mapDelta * 0.65;
-      baroTone += (targetBaro - baroTone) * (dt / 1.8);
-
-      let targetHR = 72.0 + (e_b1 * 75.0) - (e_m2 * 48.0) + baroTone;
-
-      FC += (Math.max(10, Math.min(300, targetHR)) - FC) * 0.12;
-      PAM += (Math.max(15, Math.min(320, targetMAP)) - PAM) * 0.12;
-
-      let pulsePressure = 40.0 * (targetSV / 70.0);
-      systolic = PAM + (pulsePressure * (2.0 / 3.0));
-      diastolic = PAM - (pulsePressure * (1.0 / 3.0));
-
-      historyPoints.push({
-        t: simTime,
-        sys: systolic,
-        dia: diastolic,
-        pam: PAM,
-        fc: FC
+    record(fx, h) {
+      const s = this.s;
+      fx = fx || computeEffects(s);
+      h = h || hemo(s, fx);
+      const sv = h.sv;
+      const pp = BASE.pp * (sv / BASE.sv) * Math.sqrt(Math.max(s.map, 10) / BASE.map);
+      const r3 = v => Math.round(v * 1000) / 1000;
+      const E = {}, B = {};
+      for (const k in fx.E) E[k] = r3(fx.E[k]);
+      for (const k in fx.B) B[k] = r3(fx.B[k]);
+      this.points.push({
+        t: s.t,
+        sys: s.map + pp * 2 / 3,
+        dia: s.map - pp / 3,
+        map: s.map,
+        hr: s.hr,
+        sv, co: s.hr * sv / 1000, svr: h.svr,
+        contr: fx.contr / REF.contr,
+        sym: s.sym, vag: s.vag, gT: fx.gT,
+        E, B
       });
-      if (historyPoints.length > 5000) historyPoints.shift();
     }
 
-    /* ==========================================================
-       3. CONVERSIÓN DE DOSIS Y EJECUCIÓN
-       ========================================================== */
-    function convertDoseToStandardMg(dose, unit) {
-      // Asume peso estándar de laboratorio de 70 kg si la unidad es por kg
-      const assumedWeightKg = 70.0;
-      switch (unit) {
-        case 'µg': return dose / 1000.0;
-        case 'mg': return dose;
-        case 'µg/kg': return (dose * assumedWeightKg) / 1000.0;
-        case 'mg/kg': return dose * assumedWeightKg;
-        default: return dose / 1000.0;
+    run(seconds) {
+      const n = Math.round(seconds / DT);
+      for (let i = 0; i < n; i++) this.step(DT);
+    }
+
+    /* Avanza hasta que la respuesta se estabiliza (modo inmediato) */
+    runUntilSettled(minS, maxS, drugId) {
+      const t0 = this.s.t;
+      const dd = DRUG_BY_ID[drugId];
+      if (dd) minS = Math.max(minS, dd.onset * 5, (dd.cns || 0) * 4);
+      this.run(minS);
+      while (this.s.t - t0 < maxS) {
+        this.run(1);
+        const p = this.points, n = p.length;
+        const a = p[n - 1], b = p[n - 31];
+        if (!b) continue;
+        if (Math.abs(a.map - b.map) < 0.25 && Math.abs(a.hr - b.hr) < 0.3) {
+          const allTiny = Object.keys(this.s.c).every(id => {
+            const d = DRUG_BY_ID[id];
+            return d.t12 > 200 || this.s.ce[id] < 0.05 * (d.ag ? Math.min(...Object.values(d.ag)) : 1);
+          });
+          if (allTiny) break;
+        }
       }
+      return this.s.t - t0;
     }
+  }
 
-    function executeInjection() {
-      const dose = parseFloat(inputDose.value);
-      const unit = unitSelect.value;
-      if (isNaN(dose) || dose <= 0) return;
-
-      const doseMg = convertDoseToStandardMg(dose, unit);
-      activeConcentrations[selectedDrug.id] += doseMg * 0.8;
-
-      const evt = {
-        id: Date.now(),
-        timestamp: simTime,
-        drug: selectedDrug.name,
-        dose: dose,
-        unit: unit,
-        color: selectedDrug.color,
-        baselinePAM: PAM.toFixed(1),
-        baselineFC: Math.round(FC)
+  /* Métricas de respuesta en una ventana */
+  function responseMetrics(points, t0, t1) {
+    const i0 = Math.max(0, Math.round(t0 / DT));
+    const pre = points[Math.max(0, i0)];
+    if (!pre) return null;
+    const keys = ['sys', 'dia', 'map', 'hr'];
+    const res = {};
+    keys.forEach(k => { res[k] = { max: 0, min: 0, tMax: 0, tMin: 0 }; });
+    let end = null;
+    for (let i = i0; i < points.length; i++) {
+      const p = points[i];
+      if (p.t > t1 + 1e-6) break;
+      end = p;
+      keys.forEach(k => {
+        const d = p[k] - pre[k];
+        if (d > res[k].max) { res[k].max = d; res[k].tMax = p.t - t0; }
+        if (d < res[k].min) { res[k].min = d; res[k].tMin = p.t - t0; }
+      });
+    }
+    const out = { pre: { sys: pre.sys, dia: pre.dia, map: pre.map, hr: pre.hr } };
+    keys.forEach(k => {
+      const r = res[k];
+      const peak = Math.abs(r.max) >= Math.abs(r.min) ? r.max : r.min;
+      out[k] = {
+        peak, tPeak: peak === r.max ? r.tMax : r.tMin, up: r.max, down: r.min,
+        end: end ? end[k] - pre[k] : 0
       };
-
-      injectionEvents.push(evt);
-      updateHistoryUI();
-
-      // En Modo Inmediato: se simula un bloque temporal de golpe (25 segundos a dt=0.1s)
-      if (simulationMode === 'immediate') {
-        for (let i = 0; i < 250; i++) {
-          updatePhysics(0.1);
-        }
-        updateTelemetryUI();
-      }
-
-      if (window.innerWidth <= 768) {
-        switchMobileTab('polygraph');
+    });
+    out.window = end ? end.t - t0 : 0;
+    // Duración: tiempo hasta que la PAM vuelve a ±25 % del pico
+    const pk = out.map.peak;
+    let dur = 0;
+    if (Math.abs(pk) > 2) {
+      for (let i = i0; i < points.length && points[i].t <= t1 + 1e-6; i++) {
+        if (Math.abs(points[i].map - pre.map) >= Math.abs(pk) * 0.25) dur = points[i].t - t0;
       }
     }
+    out.duration = dur;
+    return out;
+  }
 
-    function updateTelemetryUI() {
-      document.getElementById('valSysDia').textContent = `${Math.round(systolic)} / ${Math.round(diastolic)}`;
-      document.getElementById('valPAM').textContent = PAM.toFixed(1);
-      document.getElementById('valFC').textContent = Math.round(FC);
+  /* Respuesta control: misma dosis en un sujeto sin fármacos previos */
+  const controlCache = new Map();
+  function controlResponse(drugId, ug) {
+    const key = drugId + ':' + ug.toPrecision(6);
+    if (controlCache.has(key)) return controlCache.get(key);
+    const m = new Model();
+    m.run(2);
+    const t0 = m.s.t;
+    m.inject(drugId, ug);
+    const d = DRUG_BY_ID[drugId];
+    m.run(d.t12 > 200 ? 60 : Math.min(120, Math.max(40, d.t12 * 4 + 20)));
+    const r = responseMetrics(m.points, t0, m.s.t);
+    controlCache.set(key, r);
+    return r;
+  }
 
-      const m = Math.floor(simTime / 60);
-      const s = (simTime % 60).toFixed(1);
-      document.getElementById('timeDisplay').textContent = `${m.toString().padStart(2, '0')}:${s.padStart(4, '0')}`;
+
+  /* ==========================================================
+     Interpretación de respuestas y de la sesión
+     ========================================================== */
+  const fmt = (v, d) => (Math.abs(v) < 0.5 ? '±' : v > 0 ? '+' : '−') + Math.abs(v).toFixed(d === undefined ? 0 : d);
+
+  function compare(act, ctrl, thr) {
+    if (Math.abs(ctrl) < thr * 1.5) {
+      if (Math.abs(act) >= thr * 2) return 'nuevo';
+      return 'igual';
     }
+    const ratio = act / ctrl;
+    if (ratio < -0.15 && Math.abs(act) >= thr) return 'invertida';
+    if (Math.abs(act) < thr || ratio < 0.25) return 'abolida';
+    if (ratio < 0.65) return 'atenuada';
+    if (ratio > 1.5) return 'potenciada';
+    return 'similar';
+  }
 
-    /* ==========================================================
-       4. CANVAS RESPONSIVO
-       ========================================================== */
-    const canvas = document.getElementById('polygraphCanvas');
-    const ctx = canvas.getContext('2d');
-    const scaleIndicator = document.getElementById('scaleIndicator');
+  const CMP_LABEL = {
+    invertida: 'Invertida', abolida: 'Abolida', atenuada: 'Atenuada', potenciada: 'Potenciada',
+    similar: 'Similar al control', igual: 'Sin cambio', nuevo: 'Efecto nuevo'
+  };
 
-    function resizeCanvas() {
-      const rect = canvas.parentElement.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
+  function modifierNames(evt, filter) {
+    const ids = (evt.ctx.modifiers || []).map(m => m.id).filter(id => id !== evt.drugId);
+    return ids.filter(id => !filter || filter(DRUG_BY_ID[id])).map(id => DRUG_BY_ID[id].name);
+  }
+  const join = arr => arr.length <= 1 ? (arr[0] || '') : arr.slice(0, -1).join(', ') + ' y ' + arr[arr.length - 1];
+  const byAnt = r => d => d.ant && d.ant[r];
+  const byInh = k => d => d.inh && d.inh[k];
+
+  function interpretEvent(evt, resp, ctrl) {
+    const d = DRUG_BY_ID[evt.drugId];
+    const B = evt.ctx.B;
+    const map = resp.map, hr = resp.hr;
+    const tags = [];
+    const big = v => Math.abs(v) >= 4;
+    if (map.up >= 4 && map.down <= -4) tags.push({ k: 'bi', label: 'Bifásica' });
+    else if (map.peak >= 4) tags.push({ k: 'up', label: 'Presora' });
+    else if (map.peak <= -4) tags.push({ k: 'down', label: 'Depresora' });
+    if (hr.peak >= 4) tags.push({ k: 'up', label: 'Taquicardia' });
+    else if (hr.peak <= -4) tags.push({ k: 'down', label: 'Bradicardia' });
+    if (!tags.length) tags.push({ k: 'flat', label: 'Sin efecto relevante' });
+
+    const others = modifierNames(evt);
+    const cmp = ctrl ? { map: compare(map.peak, ctrl.map.peak, 4), hr: compare(hr.peak, ctrl.hr.peak, 4) } : null;
+    const notes = [];
+    const changed = cmp && (!['similar', 'igual'].includes(cmp.map) || !['similar', 'igual'].includes(cmp.hr));
+    const id = d.id;
+
+    if (changed) {
+      if (id === 'adr' && B.a1 > 0.6 && cmp.map === 'invertida')
+        notes.push('Inversión adrenalínica de Dale: con α1 bloqueado (' + join(modifierNames(evt, byAnt('a1'))) + ') queda sin oposición la vasodilatación β2 y la adrenalina se vuelve depresora.');
+      if ((id === 'adr' || id === 'nor' || id === 'eph') && B.b2 > 0.6 && B.b1 > 0.6 && (cmp.map === 'potenciada' || cmp.map === 'invertida'))
+        notes.push('Con los receptores β bloqueados (' + join(modifierNames(evt, byAnt('b1'))) + ') desaparece la vasodilatación β2 y la acción α1 actúa sin oposición: la respuesta presora aumenta.');
+      if ((id === 'iso' || id === 'dob' || id === 'sal') && (B.b1 > 0.6 || B.b2 > 0.6) && ['abolida', 'atenuada'].includes(cmp.hr))
+        notes.push('El bloqueo β (' + join(modifierNames(evt, d => d.ant && (d.ant.b1 || d.ant.b2))) + ') impide la acción de ' + d.name.toLowerCase() + ' en sus receptores.');
+      if (id === 'iso' && B.b1 > 0.6 && B.b2 < 0.3 && cmp.map !== 'abolida')
+        notes.push('El bloqueo es cardioselectivo (β1): la vasodilatación β2 se conserva y la presión sigue bajando.');
+      if (ctrl && ctrl.map.peak >= 4 && ctrl.hr.peak <= -3 && B.m > 0.6 && hr.peak > ctrl.hr.peak + 3 && id !== 'ach')
+        notes.push('La bradicardia refleja es vagal (M2). Con atropina el reflejo no puede frenar el corazón y aparece el efecto cardíaco directo o una taquicardia.');
+      if (B.n > 0.6 && ctrl && Math.abs(map.peak) > Math.abs(ctrl.map.peak) * 1.3 && id !== 'nic')
+        notes.push('Con los ganglios bloqueados (' + join(modifierNames(evt, byAnt('n'))) + ') no funciona el barorreflejo: nada amortigua el cambio de presión.');
+      if (id === 'ach' && B.m > 0.6 && map.up >= 3)
+        notes.push('Segundo experimento de Dale: con los receptores muscarínicos bloqueados, la acetilcolina a dosis alta estimula receptores nicotínicos de ganglios y médula suprarrenal y produce una respuesta presora.');
+      else if ((id === 'ach' || id === 'neo') && B.m > 0.6)
+        notes.push('La atropina bloquea los receptores muscarínicos M2 y M3: la acetilcolina ya no produce bradicardia ni vasodilatación.');
+      if (id === 'ach' && B.ache > 0.4 && cmp.map === 'potenciada')
+        notes.push('La neostigmina inhibe la acetilcolinesterasa: la acetilcolina se degrada más despacio y su efecto es mayor y más prolongado.');
+      if (d.netSub && B.net > 0.5 && cmp.map === 'potenciada')
+        notes.push('La cocaína bloquea la recaptación neuronal (NET), principal vía de terminación de ' + d.name.toLowerCase() + ': su efecto se potencia.');
+      if ((id === 'tyr' || id === 'eph') && B.net > 0.5 && ['abolida', 'atenuada'].includes(cmp.map))
+        notes.push('La ' + d.name.toLowerCase() + ' necesita entrar en la terminal por NET para liberar noradrenalina; la cocaína le cierra la entrada.' + (id === 'eph' ? ' Persiste su componente directo.' : ''));
+      if ((id === 'tyr' || id === 'eph') && B.res > 0.5 && ['abolida', 'atenuada'].includes(cmp.map))
+        notes.push('La reserpina vació los depósitos de noradrenalina: el simpaticomimético indirecto no tiene qué liberar.' + (id === 'eph' ? ' El componente directo de la efedrina explica la respuesta residual.' : ''));
+      if (B.res > 0.5 && (id === 'nor' || id === 'adr' || id === 'phe') && cmp.map === 'potenciada')
+        notes.push('Tras la reserpina, los agonistas directos siguen actuando y el reflejo simpático está debilitado: la respuesta es igual o mayor.');
+      if (id === 'his' && B.h1 > 0.6) notes.push('La difenhidramina bloquea H1 de forma competitiva y anula la vasodilatación por histamina.');
+      if (id === 'ang' && B.at1 > 0.6) notes.push('El losartán bloquea AT1: la angiotensina II no puede contraer el músculo liso vascular.');
+      if ((id === 'phe' || id === 'nor' || id === 'adr' || id === 'dop') && B.a1 > 0.6 && ['abolida', 'atenuada'].includes(cmp.map))
+        notes.push('El bloqueo α1 (' + join(modifierNames(evt, byAnt('a1'))) + ') impide la vasoconstricción.');
+      if (B.ca > 0.4 && ctrl && Math.abs(hr.peak) < Math.abs(ctrl.hr.peak) * 0.75)
+        notes.push('El verapamilo deprime el nodo sinusal: la respuesta de frecuencia cardíaca queda limitada.');
+      if (id === 'nic' && B.n > 0.6) notes.push('El hexametonio bloquea el receptor nicotínico ganglionar donde actúa la nicotina.');
+      if (!notes.length && others.length)
+        notes.push('Respuesta modificada respecto al control por la presencia de ' + join(others) + '.');
     }
+    if (id === 'avp' && B.a1 > 0.6 && cmp && ['similar', 'potenciada'].includes(cmp.map))
+      notes.push('La vasopresina actúa por receptores V1: el bloqueo α no la afecta, lo que confirma que el músculo liso sigue respondiendo.');
+    if (!changed && others.length && cmp)
+      notes.push('Respuesta comparable al control a pesar de ' + join(others) + ': los fármacos previos no actúan sobre la vía de ' + d.name.toLowerCase() + '.');
 
-    window.addEventListener('resize', resizeCanvas);
-    window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 150));
-    resizeCanvas();
+    return { tags, cmp, notes, changed, mechanism: d.desc };
+  }
 
-    function drawPolygraph() {
-      const W = canvas.width;
-      const H = canvas.height;
-      ctx.clearRect(0, 0, W, H);
+  function interpretSession(model) {
+    const ev = model.events;
+    const pts = model.points;
+    const items = ev.map((e, i) => {
+      const t1 = i + 1 < ev.length ? ev[i + 1].t : model.s.t;
+      const resp = responseMetrics(pts, e.t, t1);
+      const ctrl = controlResponse(e.drugId, e.ug);
+      return { evt: e, resp, ctrl, info: interpretEvent(e, resp, ctrl) };
+    });
+    let maxMap = -Infinity, minMap = Infinity, maxHr = -Infinity, minHr = Infinity;
+    pts.forEach(p => {
+      if (p.map > maxMap) maxMap = p.map; if (p.map < minMap) minMap = p.map;
+      if (p.hr > maxHr) maxHr = p.hr; if (p.hr < minHr) minHr = p.hr;
+    });
+    const findings = items.filter(x => x.info.changed);
+    const last = pts[pts.length - 1];
+    const blocks = [];
+    const B = last.B;
+    const recName = { a1: 'α1', a2: 'α2', b1: 'β1', b2: 'β2', m: 'muscarínicos', n: 'nicotínicos ganglionares', h1: 'H1', at1: 'AT1', net: 'NET (recaptación)' };
+    for (const r in recName) if (B[r] > 0.6) blocks.push(recName[r] + ' (' + Math.round(B[r] * 100) + ' %)');
+    const extras = [];
+    if (B.ache > 0.4) extras.push('acetilcolinesterasa inhibida (' + Math.round(B.ache * 100) + ' %)');
+    if (B.ca > 0.3) extras.push('canales de Ca²⁺ bloqueados (' + Math.round(B.ca * 100) + ' %)');
+    if (B.res > 0.3) extras.push('depósitos de noradrenalina al ' + Math.round((1 - B.res) * 100) + ' %');
 
-      const dpr = window.devicePixelRatio || 1;
-      const displayPoints = historyPoints.slice(-maxPointsOnCanvas);
-
-      let targetYMin = defaultYMin;
-      let targetYMax = defaultYMax;
-
-      if (displayPoints.length > 0) {
-        let maxObserved = -Infinity;
-        let minObserved = Infinity;
-
-        for (let pt of displayPoints) {
-          if (pt.sys > maxObserved) maxObserved = pt.sys;
-          if (pt.fc > maxObserved) maxObserved = pt.fc;
-          if (pt.dia < minObserved) minObserved = pt.dia;
-          if (pt.fc < minObserved) minObserved = pt.fc;
-        }
-
-        if (maxObserved > defaultYMax - 15) {
-          targetYMax = Math.ceil((maxObserved * 1.15) / 20) * 20;
-        }
-        if (minObserved < defaultYMin + 10) {
-          targetYMin = Math.max(0, Math.floor((minObserved * 0.85) / 10) * 10);
-        }
-      }
-
-      currentYMin += (targetYMin - currentYMin) * (simulationMode === 'immediate' ? 0.3 : 0.08);
-      currentYMax += (targetYMax - currentYMax) * (simulationMode === 'immediate' ? 0.3 : 0.08);
-      scaleIndicator.textContent = `Escala: ${Math.round(currentYMin)}-${Math.round(currentYMax)}`;
-
-      const valToY = v => H - ((v - currentYMin) / (currentYMax - currentYMin)) * H;
-
-      // Rejilla
-      ctx.strokeStyle = 'rgba(0, 95, 115, 0.08)';
-      ctx.lineWidth = 1;
-      const gridStep = 40 * dpr;
-      for (let x = 0; x < W; x += gridStep) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, H);
-        ctx.stroke();
-      }
-
-      const range = currentYMax - currentYMin;
-      let tickInterval = range > 360 ? 80 : (range > 260 ? 60 : 40);
-      const firstTick = Math.ceil(currentYMin / tickInterval) * tickInterval;
-
-      for (let level = firstTick; level < currentYMax; level += tickInterval) {
-        const y = valToY(level);
-        ctx.strokeStyle = 'rgba(0, 95, 115, 0.16)';
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(W, y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        
-        ctx.fillStyle = '#005F73';
-        ctx.font = `bold ${9 * dpr}px -apple-system, sans-serif`;
-        ctx.fillText(`${level}`, 6 * dpr, y - 4);
-      }
-
-      if (displayPoints.length < 2) return;
-
-      const stepX = W / (maxPointsOnCanvas - 1);
-      const startOffset = maxPointsOnCanvas - displayPoints.length;
-
-      function renderLine(prop, strokeStyle, lineWidth) {
-        ctx.strokeStyle = strokeStyle;
-        ctx.lineWidth = lineWidth * dpr;
-        ctx.beginPath();
-        for (let i = 0; i < displayPoints.length; i++) {
-          const x = (startOffset + i) * stepX;
-          const y = valToY(displayPoints[i][prop]);
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-      }
-
-      renderLine('sys', '#CA6702', 2.4);
-      renderLine('dia', '#BB3E03', 2.0);
-      renderLine('fc',  '#0A9396', 2.4);
-
-      // Inyecciones
-      injectionEvents.forEach(evt => {
-        const lastT = historyPoints[historyPoints.length - 1]?.t || 0;
-        const timeDiff = lastT - evt.timestamp;
-        const ptsAgo = timeDiff / 0.1;
-        if (ptsAgo >= 0 && ptsAgo <= maxPointsOnCanvas) {
-          const x = W - (ptsAgo * stepX);
-          ctx.strokeStyle = evt.color;
-          ctx.lineWidth = 1.6 * dpr;
-          ctx.setLineDash([5, 3]);
-          ctx.beginPath();
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x, H);
-          ctx.stroke();
-          ctx.setLineDash([]);
-
-          ctx.fillStyle = evt.color;
-          ctx.font = `bold ${10 * dpr}px -apple-system, sans-serif`;
-          ctx.fillText(`▲ ${evt.drug}`, x + 4, 18 * dpr);
-        }
-      });
+    const conclusions = [];
+    if (!items.length) return { items, findings, conclusions, stats: null, blocks, extras };
+    const pressors = items.filter(x => x.resp.map.peak >= 4).map(x => DRUG_BY_ID[x.evt.drugId].name);
+    const depress = items.filter(x => x.resp.map.peak <= -4).map(x => DRUG_BY_ID[x.evt.drugId].name);
+    const uniq = a => [...new Set(a)];
+    if (pressors.length) conclusions.push('Respuestas presoras: ' + join(uniq(pressors)) + '.');
+    if (depress.length) conclusions.push('Respuestas depresoras: ' + join(uniq(depress)) + '.');
+    findings.forEach(f => {
+      const n = DRUG_BY_ID[f.evt.drugId].name;
+      const c = f.info.cmp;
+      const parts = [];
+      if (!['similar', 'igual'].includes(c.map)) parts.push('presión ' + CMP_LABEL[c.map].toLowerCase());
+      if (!['similar', 'igual'].includes(c.hr)) parts.push('FC ' + CMP_LABEL[c.hr].toLowerCase());
+      conclusions.push('#' + f.evt.n + ' ' + n + ': ' + parts.join(', ') + ' respecto al control. ' + (f.info.notes[0] || ''));
+    });
+    // Repeticiones del mismo fármaco a la misma dosis: comparar primera y última
+    const byDrug = {}, byDose = {};
+    items.forEach(x => {
+      (byDrug[x.evt.drugId] = byDrug[x.evt.drugId] || []).push(x);
+      const k = x.evt.drugId + ':' + x.evt.ug.toPrecision(5);
+      (byDose[k] = byDose[k] || []).push(x);
+    });
+    for (const k in byDose) {
+      const arr = byDose[k];
+      if (arr.length < 2) continue;
+      const a = arr[0], b = arr[arr.length - 1];
+      const dn = DRUG_BY_ID[a.evt.drugId].name;
+      const dose = a.evt.doseLabel || (Math.round(a.evt.ug * 100) / 100 + ' µg');
+      conclusions.push(dn + ' ' + dose + ' se repitió ' + arr.length + ' veces: la PAM pasó de ' + fmt(a.resp.map.peak) + ' mmHg (#' + a.evt.n + ') a ' + fmt(b.resp.map.peak) + ' mmHg (#' + b.evt.n + ') y la FC de ' + fmt(a.resp.hr.peak) + ' a ' + fmt(b.resp.hr.peak) + ' lpm.');
     }
-
-    /* ==========================================================
-       5. INTERFAZ Y MANEJO DE EVENTOS
-       ========================================================== */
-    const drugGrid = document.getElementById('drugGrid');
-    const inputDose = document.getElementById('inputDose');
-    const unitSelect = document.getElementById('unitSelect');
-    const historyList = document.getElementById('historyList');
-
-    function renderDrugGrid() {
-      drugGrid.innerHTML = '';
-      DRUGS.forEach(d => {
-        const card = document.createElement('div');
-        card.className = `drug-card ${d.id === selectedDrug.id ? 'active' : ''}`;
-        card.innerHTML = `
-          <div class="drug-name">${d.name}</div>
-          <div class="drug-mech">${d.mech}</div>
-        `;
-        card.onclick = () => {
-          selectedDrug = d;
-          inputDose.value = d.defaultDose;
-          unitSelect.value = d.defaultUnit;
-          renderDrugGrid();
-        };
-        drugGrid.appendChild(card);
-      });
-    }
-
-    function updateHistoryUI() {
-      document.getElementById('histCount').textContent = `${injectionEvents.length} Eventos`;
-      if (injectionEvents.length === 0) return;
-
-      historyList.innerHTML = '';
-      [...injectionEvents].reverse().forEach(evt => {
-        const item = document.createElement('div');
-        item.className = 'history-item';
-        item.style.borderLeftColor = evt.color;
-        item.innerHTML = `
-          <div class="hist-main">
-            <span class="hist-title" style="color:${evt.color}">${evt.drug} (${evt.dose} ${evt.unit})</span>
-            <span class="hist-meta">T = ${evt.timestamp.toFixed(1)}s</span>
-          </div>
-          <div class="hist-stats">
-            <div>PAM: <b>${evt.baselinePAM}</b></div>
-            <div style="color:var(--c-ocean-teal)">FC: <b>${evt.baselineFC}</b></div>
-          </div>
-        `;
-        historyList.appendChild(item);
-      });
-    }
-
-    // Toggle de Modo: Inmediato vs En Vivo
-    const btnModeImmediate = document.getElementById('btnModeImmediate');
-    const btnModeLive = document.getElementById('btnModeLive');
-    const btnTogglePlay = document.getElementById('btnTogglePlay');
-
-    btnModeImmediate.onclick = () => {
-      simulationMode = 'immediate';
-      btnModeImmediate.classList.add('active');
-      btnModeLive.classList.remove('active');
-      btnTogglePlay.style.display = 'none';
+    if (blocks.length || extras.length) conclusions.push('Al final de la sesión persisten: ' + join(blocks.map(b => 'bloqueo ' + b).concat(extras)) + '.');
+    return {
+      items, findings, conclusions, blocks, extras,
+      stats: { duration: model.s.t, n: items.length, drugs: Object.keys(byDrug).length, maxMap, minMap, maxHr, minHr, final: last }
     };
+  }
 
-    btnModeLive.onclick = () => {
-      simulationMode = 'live';
-      btnModeLive.classList.add('active');
-      btnModeImmediate.classList.remove('active');
-      btnTogglePlay.style.display = 'inline-flex';
-    };
+  const api = { DT, BASE, DRUGS, DRUG_BY_ID, CATEGORIES, REC_LABEL, Model, toMicrograms, responseMetrics, controlResponse, computeEffects, interpretEvent, interpretSession, CMP_LABEL };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.CardioEngine = api;
+})(typeof window !== 'undefined' ? window : globalThis);
 
-    const viewSection = document.getElementById('viewSection');
-    const controlsSection = document.getElementById('controlsSection');
-    const tabButtons = document.querySelectorAll('.mobile-tab-btn');
+</script>
+<script>
+(function () {
+  'use strict';
 
-    function switchMobileTab(target) {
-      tabButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.target === target);
-      });
-      if (target === 'polygraph') {
-        viewSection.classList.remove('mobile-hidden');
-        controlsSection.classList.add('mobile-hidden');
-        setTimeout(resizeCanvas, 50);
+  const CE = window.CardioEngine;
+  const { DT, DRUGS, DRUG_BY_ID, CATEGORIES, BASE } = CE;
+
+  /* ---------- Utilidades ---------- */
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const mq = q => (window.matchMedia ? window.matchMedia(q) : { matches: false, addEventListener() {} });
+  const reduceMotion = mq('(prefers-reduced-motion: reduce)').matches;
+
+  const LS = {
+    get(k, d) { try { const v = localStorage.getItem('cardiolab:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('cardiolab:' + k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
+  };
+
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const nf = (v, d) => {
+    d = d || 0;
+    if (!isFinite(v)) return '–';
+    const r = Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
+    return (Object.is(r, -0) ? 0 : r).toFixed(d).replace('-', '−').replace('.', ',');
+  };
+  const sg = (v, d) => {
+    d = d || 0;
+    const r = Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
+    if (r === 0) return '±0';
+    return (r > 0 ? '+' : '−') + Math.abs(r).toFixed(d).replace('.', ',');
+  };
+  const trimNum = (v, maxDec) => String(Number(Number(v).toFixed(maxDec === undefined ? 3 : maxDec))).replace('.', ',');
+  const fmtT = s => {
+    s = Math.max(0, Math.round(s));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0');
+  };
+  const fmtUg = ug => ug >= 1000 ? trimNum(ug / 1000, 3) + ' mg' : trimNum(ug, ug < 1 ? 3 : 2) + ' µg';
+  const parseNum = s => { const v = parseFloat(String(s).trim().replace(',', '.')); return isFinite(v) ? v : NaN; };
+  const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/α/g, 'alfa a').replace(/β/g, 'beta b');
+  const idxOf = t => Math.round(t / DT);
+  const CAT_NAME = {}; CATEGORIES.forEach(c => { CAT_NAME[c.id] = c.name; });
+
+  /* ---------- Estado ---------- */
+  const state = {
+    mode: LS.get('mode', 'imm') === 'live' ? 'live' : 'imm',
+    running: true,
+    speed: [1, 5, 20, 60].includes(LS.get('speed', 5)) ? LS.get('speed', 5) : 5,
+    drugId: DRUG_BY_ID[LS.get('drug', 'adr')] ? LS.get('drug', 'adr') : 'adr',
+    unit: 'µg',
+    weight: LS.get('weight', 70),
+    tab: 'registro',
+    view: { span: Infinity, follow: true, x0: 0 },
+    cursorT: null,
+    order: LS.get('order', 'desc'),
+    expanded: new Set(),
+    replay: null,
+    theme: LS.get('theme', 'auto')
+  };
+  let model = null;
+  let session = null, sessionDirty = true, lastSessionAt = 0;
+
+  function freshModel() { const m = new CE.Model(); m.run(5); return m; }
+
+  /* ---------- Colores del tema ---------- */
+  const C = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    ['ink', 'ink-2', 'muted', 'line', 'line-strong', 'pres', 'pres-band', 'hr', 'surface', 'surface-2', 'surface-3', 'accent', 'grid', 'sym', 'vag', 'marker', 'marker-ink']
+      .forEach(k => { C[k] = cs.getPropertyValue('--' + k).trim(); });
+    chart.dirty = true;
+  }
+  function applyTheme() {
+    const r = document.documentElement;
+    if (state.theme === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', state.theme);
+    $('#themeLabel').textContent = 'Tema: ' + ({ auto: 'automático', light: 'claro', dark: 'oscuro' })[state.theme];
+    readColors();
+  }
+
+  /* ---------- Aviso ---------- */
+  let toastTimer = 0;
+  function toast(msg) {
+    const el = $('#toast');
+    el.textContent = msg;
+    el.classList.remove('hide');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.add('hide'), 3200);
+  }
+
+  /* ==========================================================
+     Tarjeta de administración
+     ========================================================== */
+  const adminEl = $('#adminTpl').content.firstElementChild.cloneNode(true);
+  const doseIn = $('#dose', adminEl), unitSel = $('#unit', adminEl), weightIn = $('#weight', adminEl);
+
+  function placeAdmin() {
+    const slot = $('#slot-' + state.tab);
+    if (slot && adminEl.parentNode !== slot) slot.appendChild(adminEl);
+  }
+
+  function renderDrugPick() {
+    const d = DRUG_BY_ID[state.drugId];
+    $('#dpCat', adminEl).textContent = CAT_NAME[d.cat];
+    $('#dpName', adminEl).textContent = d.name;
+    $('#dpMech', adminEl).textContent = d.mech;
+    $('#dpDesc', adminEl).textContent = d.desc;
+  }
+
+  function selectDrug(id) {
+    const d = DRUG_BY_ID[id];
+    state.drugId = id;
+    state.unit = d.unit;
+    unitSel.value = d.unit;
+    doseIn.value = trimNum(d.dose);
+    LS.set('drug', id);
+    renderDrugPick();
+    updateDose();
+  }
+
+  function currentDose() {
+    const dose = parseNum(doseIn.value);
+    const unit = unitSel.value;
+    const weight = parseNum(weightIn.value);
+    const perKg = unit.indexOf('/kg') > 0;
+    let err = '';
+    if (!(dose > 0)) err = 'Escribe una dosis mayor que 0.';
+    else if (perKg && !(weight > 0 && weight <= 400)) err = 'Escribe un peso entre 1 y 400 kg.';
+    const ug = err ? NaN : CE.toMicrograms(dose, unit, weight);
+    if (!err && !(ug > 0)) err = 'La dosis no es válida.';
+    return { dose, unit, weight, perKg, ug, err };
+  }
+
+  function doseLabel(c) {
+    let s = trimNum(c.dose) + ' ' + c.unit;
+    if (c.perKg) s += ' (' + fmtUg(c.ug) + ' para ' + trimNum(c.weight, 1) + ' kg)';
+    return s;
+  }
+
+  function updateDose() {
+    state.unit = unitSel.value;
+    const c = currentDose();
+    $('#weightField', adminEl).hidden = !c.perKg;
+    $('#doseGrid', adminEl).classList.toggle('with-weight', c.perKg);
+    const eq = $('#doseEq', adminEl);
+    if (c.err) eq.textContent = '';
+    else {
+      const d = DRUG_BY_ID[state.drugId];
+      const ratio = c.ug / CE.toMicrograms(d.dose, d.unit, 70);
+      let t = c.perKg || c.unit === 'mg' ? 'Equivale a ' + fmtUg(c.ug) + '. ' : '';
+      t += Math.abs(ratio - 1) < 0.005 ? 'Dosis habitual.' : nf(ratio, ratio < 1 ? 2 : 1) + ' veces la dosis habitual.';
+      eq.textContent = t;
+    }
+    doseIn.removeAttribute('aria-invalid');
+    $('#doseErr', adminEl).hidden = true;
+  }
+
+  function scaleDose(mul) {
+    const d = DRUG_BY_ID[state.drugId];
+    if (mul === 'reset') { unitSel.value = d.unit; doseIn.value = trimNum(d.dose); updateDose(); return; }
+    const v = parseNum(doseIn.value);
+    const base = v > 0 ? v : d.dose;
+    doseIn.value = trimNum(base * parseFloat(mul), 4);
+    updateDose();
+  }
+
+  function administer() {
+    const c = currentDose();
+    if (c.err) {
+      const e = $('#doseErr', adminEl);
+      e.textContent = c.err; e.hidden = false;
+      (c.err.indexOf('peso') >= 0 ? weightIn : doseIn).setAttribute('aria-invalid', 'true');
+      return;
+    }
+    if (c.perKg) { state.weight = c.weight; LS.set('weight', c.weight); }
+    const d = DRUG_BY_ID[state.drugId];
+    const label = doseLabel(c);
+    const evt = model.inject(d.id, c.ug, { doseLabel: label, dose: c.dose, unit: c.unit, weight: c.perKg ? c.weight : null, mode: state.mode });
+    if (!evt) { toast('No se pudo administrar.'); return; }
+    if (state.mode === 'imm') {
+      const btn = $('#giveBtn', adminEl);
+      btn.disabled = true;
+      const secs = model.runUntilSettled(20, 150, d.id);
+      btn.disabled = false;
+      const span = Math.max(30, model.s.t - (evt.t - 10));
+      state.view = { span, follow: true, x0: 0 };
+      state.cursorT = null;
+      syncRangeSeg();
+      toast('#' + evt.n + ' ' + d.name + ' ' + label + ': respuesta registrada en ' + fmtT(secs));
+      if (state.tab === 'fisio') startReplay(evt.n);
+    } else {
+      if (!state.running) setRunning(true);
+      toast('#' + evt.n + ' ' + d.name + ' ' + label + ' administrada');
+    }
+    dataChanged(true);
+  }
+
+  function renderModeHint() {
+    $('#modeHint', adminEl).textContent = state.mode === 'imm'
+      ? 'Modo inmediato: la simulación avanza hasta que la respuesta se estabiliza (entre 20 y 150 s).'
+      : 'Modo en vivo: el fármaco actúa en tiempo real a la velocidad elegida. Puedes encadenar dosis sin esperar.';
+  }
+
+  /* ==========================================================
+     Selector de fármacos
+     ========================================================== */
+  const sheet = $('#sheet');
+  let sheetCat = 'all', lastFocus = null;
+  const HAY = {};
+  DRUGS.forEach(d => { HAY[d.id] = norm([d.name, d.mech, CAT_NAME[d.cat], d.desc, d.id].join(' ')); });
+
+  function buildCatChips() {
+    const box = $('#catChips');
+    const cats = [{ id: 'all', name: 'Todas' }].concat(CATEGORIES);
+    box.innerHTML = cats.map(c => '<button type="button" data-cat="' + c.id + '" aria-pressed="' + (c.id === sheetCat) + '">' + esc(c.name) + '</button>').join('');
+  }
+
+  function renderDrugList() {
+    const q = norm($('#drugSearch').value.trim());
+    const terms = q.split(/\s+/).filter(Boolean);
+    const list = DRUGS.filter(d => (sheetCat === 'all' || d.cat === sheetCat) && terms.every(t => HAY[d.id].indexOf(t) >= 0));
+    const box = $('#drugList');
+    if (!list.length) {
+      box.innerHTML = '<div class="drug-empty">Ningún fármaco coincide con «' + esc($('#drugSearch').value.trim()) + '». Prueba con el nombre o un receptor, por ejemplo «beta» o «M2».</div>';
+      return;
+    }
+    const groups = CATEGORIES.map(c => ({ c, items: list.filter(d => d.cat === c.id) })).filter(g => g.items.length);
+    box.innerHTML = groups.map(g =>
+      '<div class="drug-group"><h3>' + esc(g.c.name) + '</h3>' +
+      g.items.map(d =>
+        '<button type="button" class="drug-item" role="option" data-id="' + d.id + '" aria-selected="' + (d.id === state.drugId) + '">' +
+        '<span class="di-name">' + esc(d.name) + '</span>' +
+        '<span class="di-dose">' + trimNum(d.dose) + ' ' + d.unit + '</span>' +
+        '<span class="di-mech">' + esc(d.mech) + '</span></button>').join('') +
+      '</div>').join('');
+  }
+
+  function openSheet() {
+    lastFocus = document.activeElement;
+    sheet.hidden = false;
+    document.body.style.overflow = 'hidden';
+    $('#drugSearch').value = '';
+    buildCatChips();
+    renderDrugList();
+    const sel = $('.drug-item[aria-selected="true"]', sheet);
+    if (sel) sel.scrollIntoView({ block: 'center' });
+    if (mq('(hover: hover)').matches) $('#drugSearch').focus(); else $('.sheet-panel .icon-btn').focus();
+  }
+  function closeSheet() {
+    sheet.hidden = true;
+    document.body.style.overflow = '';
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  /* ==========================================================
+     Gráfica principal
+     ========================================================== */
+  const chart = { dirty: true, pointers: new Map(), pinch: null };
+  const cv = $('#chart'), mini = $('#mini'), tip = $('#tip');
+
+  function sizeCanvas(c) {
+    const r = c.getBoundingClientRect();
+    const w = Math.round(r.width), h = Math.round(r.height);
+    if (w < 2 || h < 2) return null;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+    const ctx = c.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w, h };
+  }
+
+  function fullSpan() { return Math.max(model.s.t, 30); }
+  function viewRange() {
+    const T = model.s.t, v = state.view, full = fullSpan();
+    if (v.span === Infinity) return [0, full];
+    const span = v.span;
+    if (v.follow) { const x1 = Math.max(T, span); return [x1 - span, x1]; }
+    const x0 = clamp(v.x0, 0, Math.max(0, Math.max(full, span) - span));
+    return [x0, x0 + span];
+  }
+  function setView(x0, span, keepFollowCheck) {
+    const full = fullSpan();
+    span = Math.max(5, span);
+    if (span >= full * 0.999) { state.view = { span: Infinity, follow: true, x0: 0 }; }
+    else {
+      x0 = clamp(x0, 0, full - span);
+      const follow = keepFollowCheck !== false && x0 + span >= model.s.t - 0.05;
+      state.view = { span, follow, x0 };
+    }
+    chart.dirty = true;
+    syncRangeSeg();
+  }
+
+  function syncRangeSeg() {
+    const v = state.view;
+    $$('#rangeSeg button').forEach(b => {
+      const s = b.dataset.span === 'all' ? Infinity : +b.dataset.span;
+      b.setAttribute('aria-pressed', String(s === v.span && (v.follow || s === Infinity)));
+    });
+    $('#toEnd').hidden = v.span === Infinity || v.follow;
+  }
+
+  function niceStep(x) {
+    const p = Math.pow(10, Math.floor(Math.log10(x)));
+    const f = x / p;
+    return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+  }
+  function niceBounds(lo, hi, minSpan, floor) {
+    if (!isFinite(lo) || !isFinite(hi)) { lo = 0; hi = 100; }
+    let span = hi - lo;
+    if (span < minSpan) { const c = (lo + hi) / 2; lo = c - minSpan / 2; hi = c + minSpan / 2; span = minSpan; }
+    lo -= span * 0.1; hi += span * 0.1;
+    const step = niceStep((hi - lo) / 4);
+    lo = Math.max(floor, Math.floor(lo / step) * step);
+    hi = Math.ceil(hi / step) * step;
+    return { lo, hi, step };
+  }
+  const TIME_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
+
+  function chartLayout(w, h) {
+    const L = 40, R = 10, top = 26, bottom = 20, gap = 30;
+    const avail = h - top - bottom - gap;
+    const p1h = Math.round(avail * 0.6);
+    return { L, R, x1: w - R, p1: { t: top, b: top + p1h }, p2: { t: top + p1h + gap, b: h - bottom } };
+  }
+
+  // Agrupa los puntos por columna de píxel (mín./máx.) para dibujar sesiones largas sin perder picos
+  function columns(i0, i1, X) {
+    const P = model.points, cols = [];
+    let cur = null;
+    for (let i = i0; i <= i1; i++) {
+      const p = P[i];
+      const x = X(p.t), cx = Math.round(x);
+      if (!cur || cx !== cur.cx) {
+        cur = { cx, x, sysMax: p.sys, diaMin: p.dia, mF: p.map, mMin: p.map, mMax: p.map, mL: p.map, hF: p.hr, hMin: p.hr, hMax: p.hr, hL: p.hr };
+        cols.push(cur);
       } else {
-        viewSection.classList.add('mobile-hidden');
-        controlsSection.classList.remove('mobile-hidden');
+        if (p.sys > cur.sysMax) cur.sysMax = p.sys;
+        if (p.dia < cur.diaMin) cur.diaMin = p.dia;
+        if (p.map < cur.mMin) cur.mMin = p.map; if (p.map > cur.mMax) cur.mMax = p.map;
+        if (p.hr < cur.hMin) cur.hMin = p.hr; if (p.hr > cur.hMax) cur.hMax = p.hr;
+        cur.mL = p.map; cur.hL = p.hr;
       }
     }
+    return cols;
+  }
 
-    tabButtons.forEach(btn => {
-      btn.onclick = () => switchMobileTab(btn.dataset.target);
+  function drawChart() {
+    const s = sizeCanvas(cv);
+    if (!s) return false;
+    const { ctx, w, h } = s;
+    const P = model.points;
+    const [x0, x1] = viewRange();
+    const lay = chartLayout(w, h);
+    const X = t => lay.L + (t - x0) / (x1 - x0) * (lay.x1 - lay.L);
+    const i0 = clamp(Math.floor(x0 / DT) - 1, 0, P.length - 1);
+    const i1 = clamp(Math.ceil(x1 / DT) + 1, 0, P.length - 1);
+    const cols = columns(i0, i1, X);
+
+    let pLo = Infinity, pHi = -Infinity, hLo = Infinity, hHi = -Infinity;
+    cols.forEach(c => {
+      if (c.diaMin < pLo) pLo = c.diaMin; if (c.sysMax > pHi) pHi = c.sysMax;
+      if (c.hMin < hLo) hLo = c.hMin; if (c.hMax > hHi) hHi = c.hMax;
+    });
+    const yp = niceBounds(pLo, pHi, 40, 0), yh = niceBounds(hLo, hHi, 30, 0);
+    const Yp = v => lay.p1.b - (v - yp.lo) / (yp.hi - yp.lo) * (lay.p1.b - lay.p1.t);
+    const Yh = v => lay.p2.b - (v - yh.lo) / (yh.hi - yh.lo) * (lay.p2.b - lay.p2.t);
+    chart.geo = { x0, x1, lay, X, Yp, Yh, w, h };
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
+    ctx.textBaseline = 'middle';
+
+    // Rejilla y ejes Y
+    function grid(sc, Y, panel, title) {
+      ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+      ctx.fillStyle = C.muted; ctx.textAlign = 'right';
+      for (let v = sc.lo; v <= sc.hi + 1e-9; v += sc.step) {
+        const y = Math.round(Y(v)) + 0.5;
+        ctx.beginPath(); ctx.moveTo(lay.L, y); ctx.lineTo(lay.x1, y); ctx.stroke();
+        ctx.fillText(String(Math.round(v)), lay.L - 6, y);
+      }
+      ctx.textAlign = 'left'; ctx.fillStyle = C['ink-2'];
+      ctx.font = '600 11.5px ' + getComputedStyle(document.body).fontFamily;
+      ctx.fillText(title, lay.L, panel.t - 11);
+      ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
+    }
+    grid(yp, Yp, lay.p1, 'Presión arterial, mmHg');
+    grid(yh, Yh, lay.p2, 'Frecuencia cardíaca, lpm');
+
+    // Eje de tiempo
+    const pxPerS = (lay.x1 - lay.L) / (x1 - x0);
+    const tStep = TIME_STEPS.find(s => s * pxPerS >= 64) || 7200;
+    ctx.fillStyle = C.muted; ctx.textAlign = 'center';
+    for (let t = Math.ceil(x0 / tStep) * tStep; t <= x1 + 1e-6; t += tStep) {
+      const x = X(t);
+      if (x < lay.L + 10 || x > lay.x1 - 12) continue;
+      ctx.fillText(fmtT(t), x, h - 8);
+      ctx.strokeStyle = C.grid; ctx.beginPath();
+      ctx.moveTo(Math.round(x) + 0.5, lay.p2.b); ctx.lineTo(Math.round(x) + 0.5, lay.p2.b + 4); ctx.stroke();
+    }
+
+    // Marcadores de administración (líneas)
+    const evs = model.events.filter(e => e.t >= x0 - 1e-6 && e.t <= x1 + 1e-6);
+    ctx.save();
+    ctx.setLineDash([3, 4]); ctx.strokeStyle = C['line-strong']; ctx.lineWidth = 1;
+    evs.forEach(e => {
+      const x = Math.round(X(e.t)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(x, lay.p1.t - 2); ctx.lineTo(x, lay.p1.b); ctx.moveTo(x, lay.p2.t); ctx.lineTo(x, lay.p2.b); ctx.stroke();
+    });
+    ctx.restore();
+
+    // Recorte por panel
+    function clip(panel, fn) {
+      ctx.save(); ctx.beginPath(); ctx.rect(lay.L, panel.t - 2, lay.x1 - lay.L, panel.b - panel.t + 4); ctx.clip(); fn(); ctx.restore();
+    }
+    if (cols.length) {
+      clip(lay.p1, () => {
+        // Banda SIS–DIA
+        ctx.beginPath();
+        cols.forEach((c, i) => { const y = Yp(c.sysMax); i ? ctx.lineTo(c.x, y) : ctx.moveTo(c.x, y); });
+        for (let i = cols.length - 1; i >= 0; i--) ctx.lineTo(cols[i].x, Yp(cols[i].diaMin));
+        ctx.closePath(); ctx.fillStyle = C['pres-band']; ctx.fill();
+        // Bordes de la banda
+        ctx.lineWidth = 1; ctx.strokeStyle = C.pres; ctx.globalAlpha = 0.45;
+        ctx.beginPath(); cols.forEach((c, i) => { const y = Yp(c.sysMax); i ? ctx.lineTo(c.x, y) : ctx.moveTo(c.x, y); }); ctx.stroke();
+        ctx.beginPath(); cols.forEach((c, i) => { const y = Yp(c.diaMin); i ? ctx.lineTo(c.x, y) : ctx.moveTo(c.x, y); }); ctx.stroke();
+        ctx.globalAlpha = 1;
+        // PAM
+        ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.strokeStyle = C.pres;
+        ctx.beginPath();
+        cols.forEach((c, i) => {
+          if (i) ctx.lineTo(c.x, Yp(c.mF)); else ctx.moveTo(c.x, Yp(c.mF));
+          if (c.mMax !== c.mMin) { ctx.lineTo(c.x, Yp(c.mMax)); ctx.lineTo(c.x, Yp(c.mMin)); }
+          ctx.lineTo(c.x, Yp(c.mL));
+        });
+        ctx.stroke();
+      });
+      clip(lay.p2, () => {
+        ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.strokeStyle = C.hr;
+        ctx.beginPath();
+        cols.forEach((c, i) => {
+          if (i) ctx.lineTo(c.x, Yh(c.hF)); else ctx.moveTo(c.x, Yh(c.hF));
+          if (c.hMax !== c.hMin) { ctx.lineTo(c.x, Yh(c.hMax)); ctx.lineTo(c.x, Yh(c.hMin)); }
+          ctx.lineTo(c.x, Yh(c.hL));
+        });
+        ctx.stroke();
+      });
+    }
+
+    // Insignias numeradas
+    ctx.font = '700 11px ' + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = 'center';
+    let lastX = -Infinity;
+    const badgeY = lay.p1.t + 10;
+    evs.forEach(e => {
+      const x = X(e.t);
+      const label = String(e.n);
+      const r = label.length > 2 ? 11 : 9.5;
+      if (x - lastX < r * 2 + 3) {
+        ctx.fillStyle = C.marker; ctx.beginPath(); ctx.arc(x, badgeY, 2.5, 0, Math.PI * 2); ctx.fill();
+        return;
+      }
+      lastX = x;
+      ctx.fillStyle = C.marker; ctx.beginPath(); ctx.arc(x, badgeY, r, 0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = C.surface; ctx.stroke();
+      ctx.fillStyle = C['marker-ink']; ctx.fillText(label, x, badgeY + 0.5);
     });
 
-    function handleResizeLayout() {
-      if (window.innerWidth > 768) {
-        viewSection.classList.remove('mobile-hidden');
-        controlsSection.classList.remove('mobile-hidden');
-      } else {
-        const activeBtn = document.querySelector('.mobile-tab-btn.active');
-        switchMobileTab(activeBtn ? activeBtn.dataset.target : 'polygraph');
-      }
-      resizeCanvas();
-    }
-    window.addEventListener('resize', handleResizeLayout);
+    // Cursor
+    drawCursor(ctx);
+    return true;
+  }
 
-    document.querySelectorAll('.btn-step').forEach(btn => {
-      btn.onclick = () => { inputDose.value = btn.dataset.val; };
+  function lastEventAt(t) {
+    const ev = model.events;
+    for (let i = ev.length - 1; i >= 0; i--) if (ev[i].t <= t + 1e-6) return ev[i];
+    return null;
+  }
+
+  function drawCursor(ctx) {
+    const g = chart.geo;
+    if (state.cursorT === null || !g || state.cursorT < g.x0 || state.cursorT > g.x1) { tip.hidden = true; return; }
+    const i = clamp(idxOf(state.cursorT), 0, model.points.length - 1);
+    const p = model.points[i];
+    const x = Math.round(g.X(p.t)) + 0.5, lay = g.lay;
+    ctx.strokeStyle = C.ink; ctx.globalAlpha = 0.55; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, lay.p1.t - 2); ctx.lineTo(x, lay.p1.b); ctx.moveTo(x, lay.p2.t); ctx.lineTo(x, lay.p2.b); ctx.stroke();
+    ctx.globalAlpha = 1;
+    const dot = (y, col, r) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = C.surface; ctx.stroke(); };
+    dot(g.Yp(p.sys), C.pres, 3.5); dot(g.Yp(p.dia), C.pres, 3.5); dot(g.Yp(p.map), C.pres, 4.5); dot(g.Yh(p.hr), C.hr, 4.5);
+
+    const ev = lastEventAt(p.t);
+    let evHtml = '';
+    if (ev) evHtml = '<div class="tip-ev">Tras #' + ev.n + ' ' + esc(DRUG_BY_ID[ev.drugId].name) + ', +' + fmtT(p.t - ev.t) + '</div>';
+    tip.innerHTML =
+      '<div class="tip-t">t ' + fmtT(p.t) + '</div>' +
+      '<div class="tip-row"><i style="background:' + C.pres + ';height:6px;opacity:.6"></i>SIS/DIA<b>' + nf(p.sys) + '/' + nf(p.dia) + '</b></div>' +
+      '<div class="tip-row"><i style="background:' + C.pres + '"></i>PAM<b>' + nf(p.map) + ' mmHg</b></div>' +
+      '<div class="tip-row"><i style="background:' + C.hr + '"></i>FC<b>' + nf(p.hr) + ' lpm</b></div>' + evHtml;
+    tip.hidden = false;
+    const tw = tip.offsetWidth, cw = g.w;
+    let left = x + 14;
+    if (left + tw > cw - 4) left = x - 14 - tw;
+    tip.style.left = clamp(left, 2, cw - tw - 2) + 'px';
+  }
+
+  function drawMini() {
+    const s = sizeCanvas(mini);
+    if (!s) return;
+    const { ctx, w, h } = s;
+    const P = model.points, full = fullSpan();
+    const pad = 2;
+    const X = t => pad + t / full * (w - pad * 2);
+    const cols = columns(0, P.length - 1, X);
+    let lo = Infinity, hi = -Infinity;
+    cols.forEach(c => { if (c.mMin < lo) lo = c.mMin; if (c.mMax > hi) hi = c.mMax; });
+    if (hi - lo < 20) { const m = (hi + lo) / 2; lo = m - 10; hi = m + 10; }
+    const Y = v => h - 6 - (v - lo) / (hi - lo) * (h - 14);
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = C['surface-2'];
+    roundRect(ctx, 0.5, 0.5, w - 1, h - 1, 8); ctx.fill();
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke();
+    // Traza de PAM
+    ctx.strokeStyle = C.pres; ctx.lineWidth = 1.25; ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    cols.forEach((c, i) => { if (i) ctx.lineTo(c.x, Y(c.mMax)); else ctx.moveTo(c.x, Y(c.mMax)); ctx.lineTo(c.x, Y(c.mMin)); });
+    ctx.stroke(); ctx.globalAlpha = 1;
+    // Administraciones
+    ctx.fillStyle = C.marker;
+    model.events.forEach(e => { const x = X(e.t); ctx.fillRect(Math.round(x) - 0.5, 1, 1.5, 5); });
+    // Ventana
+    const [x0, x1] = viewRange();
+    const bx0 = X(Math.max(0, x0)), bx1 = X(Math.min(full, x1));
+    ctx.fillStyle = C.ink; ctx.globalAlpha = 0.07;
+    ctx.fillRect(1, 1, Math.max(0, bx0 - 1), h - 2); ctx.fillRect(bx1, 1, Math.max(0, w - 1 - bx1), h - 2);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 2;
+    roundRect(ctx, bx0, 1.5, Math.max(4, bx1 - bx0), h - 3, 6); ctx.stroke();
+    ctx.fillStyle = C.accent;
+    [bx0, bx1].forEach(x => { roundRect(ctx, x - 2.5, h / 2 - 9, 5, 18, 2.5); ctx.fill(); });
+    chart.miniGeo = { X, full, w, pad, bx0, bx1 };
+    mini.setAttribute('aria-valuenow', String(Math.round(x0 / full * 100)));
+    mini.setAttribute('aria-valuetext', 'De ' + fmtT(x0) + ' a ' + fmtT(Math.min(x1, full)));
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+
+  function renderViewLabel() {
+    const [x0, x1] = viewRange();
+    const full = fullSpan();
+    $('#viewLabel').textContent = state.view.span === Infinity
+      ? 'Sesión completa, ' + fmtT(model.s.t)
+      : 'Mostrando ' + fmtT(x0) + ' a ' + fmtT(Math.min(x1, Math.max(full, x1)));
+  }
+
+  // Interacción con la gráfica: tocar/pasar = cursor, rueda o pellizco = zoom
+  function tAtClientX(clientX) {
+    const g = chart.geo; if (!g) return null;
+    const r = cv.getBoundingClientRect();
+    const x = clamp(clientX - r.left, g.lay.L, g.lay.x1);
+    return g.x0 + (x - g.lay.L) / (g.lay.x1 - g.lay.L) * (g.x1 - g.x0);
+  }
+  function setCursorFromEvent(e) {
+    const t = tAtClientX(e.clientX);
+    if (t === null) return;
+    state.cursorT = clamp(t, 0, model.s.t);
+    chart.dirty = true;
+  }
+  cv.addEventListener('pointerdown', e => {
+    chart.pointers.set(e.pointerId, e.clientX);
+    if (chart.pointers.size === 2) {
+      const xs = Array.from(chart.pointers.values());
+      const [a, b] = viewRange();
+      chart.pinch = { d0: Math.abs(xs[0] - xs[1]) || 1, tMid: tAtClientX((xs[0] + xs[1]) / 2), frac: null, span0: b - a };
+      const r = cv.getBoundingClientRect(), g = chart.geo;
+      chart.pinch.frac = ((xs[0] + xs[1]) / 2 - r.left - g.lay.L) / (g.lay.x1 - g.lay.L);
+      state.cursorT = null;
+      return;
+    }
+    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignorar */ }
+    setCursorFromEvent(e);
+  });
+  cv.addEventListener('pointermove', e => {
+    if (chart.pointers.has(e.pointerId)) chart.pointers.set(e.pointerId, e.clientX);
+    if (chart.pinch && chart.pointers.size === 2) {
+      const xs = Array.from(chart.pointers.values());
+      const d = Math.abs(xs[0] - xs[1]) || 1;
+      const span = clamp(chart.pinch.span0 * chart.pinch.d0 / d, 5, fullSpan());
+      setView(chart.pinch.tMid - chart.pinch.frac * span, span);
+      return;
+    }
+    if (e.pointerType === 'mouse' || chart.pointers.has(e.pointerId)) setCursorFromEvent(e);
+  });
+  const endPointer = e => {
+    chart.pointers.delete(e.pointerId);
+    if (chart.pointers.size < 2) chart.pinch = null;
+  };
+  cv.addEventListener('pointerup', endPointer);
+  cv.addEventListener('pointercancel', endPointer);
+  cv.addEventListener('pointerleave', e => {
+    if (e.pointerType === 'mouse') { state.cursorT = null; chart.dirty = true; }
+  });
+  cv.addEventListener('wheel', e => {
+    if (!chart.geo) return;
+    e.preventDefault();
+    const [a, b] = viewRange();
+    const t = tAtClientX(e.clientX);
+    const k = Math.exp((e.deltaY || 0) * 0.0018);
+    const span = clamp((b - a) * k, 5, fullSpan());
+    const frac = (t - a) / (b - a);
+    setView(t - frac * span, span);
+  }, { passive: false });
+  cv.addEventListener('dblclick', () => { state.view = { span: Infinity, follow: true, x0: 0 }; syncRangeSeg(); chart.dirty = true; });
+
+  // Minivista: arrastrar ventana, redimensionar por los bordes o tocar para centrar
+  let miniDrag = null;
+  mini.addEventListener('pointerdown', e => {
+    const g = chart.miniGeo; if (!g) return;
+    const r = mini.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const toT = px => (px - g.pad) / (g.w - g.pad * 2) * g.full;
+    const [a, b] = viewRange();
+    const span = Math.min(b - a, g.full);
+    let mode = 'move', off;
+    if (Math.abs(x - g.bx0) < 12 && g.bx1 - g.bx0 > 24) mode = 'l';
+    else if (Math.abs(x - g.bx1) < 12 && g.bx1 - g.bx0 > 24) mode = 'r';
+    else if (x < g.bx0 || x > g.bx1) {
+      const s = span >= g.full * 0.999 ? Math.max(10, g.full * 0.25) : span;
+      setView(toT(x) - s / 2, s);
+    }
+    const [na, nb] = viewRange();
+    off = toT(x) - na;
+    miniDrag = { mode, off, toT, a: na, b: nb };
+    try { mini.setPointerCapture(e.pointerId); } catch (err) { /* ignorar */ }
+    e.preventDefault();
+  });
+  mini.addEventListener('pointermove', e => {
+    if (!miniDrag) return;
+    const r = mini.getBoundingClientRect();
+    const t = miniDrag.toT(e.clientX - r.left);
+    const d = miniDrag;
+    if (d.mode === 'move') setView(t - d.off, d.b - d.a);
+    else if (d.mode === 'l') { const a = clamp(t, 0, d.b - 5); setView(a, d.b - a); }
+    else { const b = clamp(t, d.a + 5, fullSpan()); setView(d.a, b - d.a); }
+  });
+  const miniEnd = () => { miniDrag = null; };
+  mini.addEventListener('pointerup', miniEnd);
+  mini.addEventListener('pointercancel', miniEnd);
+  mini.addEventListener('keydown', e => {
+    const [a, b] = viewRange(); const span = b - a; let x0 = a;
+    if (e.key === 'ArrowLeft') x0 = a - span * 0.2;
+    else if (e.key === 'ArrowRight') x0 = a + span * 0.2;
+    else if (e.key === 'Home') x0 = 0;
+    else if (e.key === 'End') x0 = fullSpan() - span;
+    else return;
+    e.preventDefault();
+    setView(x0, span);
+  });
+
+  /* ==========================================================
+     Constantes
+     ========================================================== */
+  function renderVitals() {
+    const p = model.points[model.points.length - 1];
+    $('#vSys').textContent = nf(p.sys); $('#vDia').textContent = nf(p.dia);
+    $('#vMap').textContent = nf(p.map); $('#vHr').textContent = nf(p.hr);
+    $('#vT').textContent = fmtT(p.t);
+  }
+
+  /* ==========================================================
+     Fisiología animada
+     ========================================================== */
+  const phys = {
+    phase: 0, lumen: 56, pxAcc: 0, buf: null, head: 0, yLo: 40, yHi: 160,
+    lanes: { sym: { acc: 0, spikes: [] }, vag: { acc: 0, spikes: [] } }, frame: 0, built: false
+  };
+  const REC_ROWS = [
+    ['a1', 'α1', 'a1'], ['a2', 'α2', 'a2'], ['b1', 'β1', 'b1'], ['b2', 'β2', 'b2'],
+    ['m2', 'M2', 'm'], ['m3', 'M3', 'm'], ['n', 'Nicotínico', 'n'], ['h1', 'H1', 'h1'],
+    ['d1', 'D1', null], ['v1', 'V1', null], ['at1', 'AT1', 'at1'], ['no', 'NO', null]
+  ];
+
+  function buildPhysio() {
+    if (phys.built) return;
+    phys.built = true;
+    const NS = 'http://www.w3.org/2000/svg';
+    const cells = $('#artCells');
+    phys.cells = [];
+    for (let i = 0; i < 18; i++) {
+      const el = document.createElementNS(NS, 'ellipse');
+      el.setAttribute('fill', 'var(--wall-cell)');
+      cells.appendChild(el); phys.cells.push(el);
+    }
+    const rbc = $('#artRbc');
+    phys.rbc = [];
+    for (let i = 0; i < 7; i++) {
+      const g = document.createElementNS(NS, 'g');
+      const o = document.createElementNS(NS, 'circle'); o.setAttribute('r', '7.5'); o.setAttribute('fill', 'var(--rbc)');
+      const c = document.createElementNS(NS, 'circle'); c.setAttribute('r', '3.2'); c.setAttribute('fill', 'var(--blood)'); c.setAttribute('opacity', '.55');
+      g.appendChild(o); g.appendChild(c); rbc.appendChild(g);
+      phys.rbc.push({ el: g, a: Math.random() * Math.PI * 2, f: 0.2 + Math.random() * 0.75, w: (Math.random() - 0.5) * 0.6, ph: Math.random() * 6 });
+    }
+    $('#recList').innerHTML = REC_ROWS.map(r =>
+      '<div class="rec" data-r="' + r[0] + '"><span class="rec-name">' + r[1] + '</span><span class="rec-bar"><i></i><s></s></span><span class="rec-val">0 %</span></div>').join('');
+    phys.recEls = $$('#recList .rec').map(el => ({ el, bar: $('i', el), base: $('s', el), val: $('.rec-val', el) }));
+  }
+
+  function physioPoint() {
+    if (state.replay) {
+      const r = state.replay;
+      const now = performance.now();
+      const f = clamp((now - r.start) / r.dur, 0, 1);
+      const t = r.t0 + f * (r.t1 - r.t0);
+      $('#rpProg').style.width = (f * 100) + '%';
+      $('#rpSub').textContent = 't ' + fmtT(t) + ' (' + (t >= r.evtT ? '+' : '−') + fmtT(Math.abs(t - r.evtT)) + ' desde la dosis)';
+      if (f >= 1) stopReplay(true);
+      return model.points[clamp(idxOf(t), 0, model.points.length - 1)];
+    }
+    return model.points[model.points.length - 1];
+  }
+
+  function startReplay(n) {
+    const ev = model.events.find(e => e.n === n) || model.events[model.events.length - 1];
+    if (!ev) return;
+    const i = model.events.indexOf(ev);
+    const end = i + 1 < model.events.length ? model.events[i + 1].t : model.s.t;
+    const t0 = Math.max(0, ev.t - 4), t1 = end;
+    state.replay = { t0, t1, evtT: ev.t, start: performance.now(), dur: clamp((t1 - t0) / 12, 4, 14) * 1000 };
+    $('#rpTitle').textContent = 'Repitiendo #' + ev.n + ' ' + DRUG_BY_ID[ev.drugId].name;
+    $('#rpBtn').textContent = 'Detener';
+  }
+  function stopReplay(finished) {
+    state.replay = null;
+    $('#rpTitle').textContent = finished ? 'Respuesta completa, estado actual' : 'Estado actual';
+    $('#rpProg').style.width = '0';
+    syncReplayBtn();
+  }
+  function syncReplayBtn() {
+    const btn = $('#rpBtn');
+    const last = model.events[model.events.length - 1];
+    if (state.replay) { btn.textContent = 'Detener'; btn.disabled = false; return; }
+    btn.disabled = !last;
+    btn.textContent = last ? 'Repetir #' + last.n + ' ' + DRUG_BY_ID[last.drugId].name : 'Repetir respuesta';
+    if (!state.replay) $('#rpSub').textContent = 't ' + fmtT(model.s.t) + (state.mode === 'live' ? (state.running ? ', en curso' : ', en pausa') : '');
+  }
+
+  function wave(ph) {
+    if (ph < 0.13) return 0.5 - 0.5 * Math.cos(Math.PI * ph / 0.13);
+    const u = ph - 0.13;
+    let s = Math.exp(-u * 3.4);
+    s += 0.1 * Math.exp(-Math.pow((ph - 0.4) / 0.045, 2)) - 0.07 * Math.exp(-Math.pow((ph - 0.33) / 0.02, 2));
+    const end = Math.exp(-0.87 * 3.4);
+    return (s - end) / (1 - end);
+  }
+  const contraction = ph => ph < 0.32 ? Math.sin(Math.PI * ph / 0.32) : 0;
+
+  function stepPhysio(dt) {
+    buildPhysio();
+    const p = physioPoint();
+    const hr = p.hr, pp = p.sys - p.dia;
+    const fam = 'px ' + getComputedStyle(document.body).fontFamily;
+
+    // Onda de pulso (barrido tipo monitor)
+    const s = sizeCanvas($('#pulse'));
+    if (s) {
+      const { ctx, w, h } = s;
+      if (!phys.buf || phys.buf.length !== w) { phys.buf = new Float32Array(w).fill(NaN); phys.head = 0; }
+      const speed = 90;
+      if (reduceMotion) {
+        for (let i = 0; i < w; i++) { const ph = (i / speed * hr / 60) % 1; phys.buf[i] = p.dia + pp * wave(ph); }
+        phys.phase = 0.6;
+      } else {
+        phys.pxAcc += speed * dt;
+        let n = Math.floor(phys.pxAcc); phys.pxAcc -= n;
+        n = Math.min(n, w);
+        for (let k = 0; k < n; k++) {
+          phys.phase += hr / 60 / speed;
+          if (phys.phase >= 1) phys.phase -= 1;
+          phys.buf[phys.head] = p.dia + pp * wave(phys.phase);
+          phys.head = (phys.head + 1) % w;
+          for (let g = 0; g < 14; g++) phys.buf[(phys.head + g) % w] = NaN;
+        }
+      }
+      // Escala vertical suave
+      const tLo = Math.floor((p.dia - 15) / 20) * 20, tHi = Math.ceil((p.sys + 15) / 20) * 20;
+      const a = 1 - Math.exp(-dt * 2.5);
+      phys.yLo += (tLo - phys.yLo) * a; phys.yHi += (tHi - phys.yHi) * a;
+      const Y = v => h - 6 - (v - phys.yLo) / (phys.yHi - phys.yLo) * (h - 12);
+      ctx.clearRect(0, 0, w, h);
+      ctx.font = '11' + fam; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      const step = phys.yHi - phys.yLo > 140 ? 40 : 20;
+      for (let v = Math.ceil(phys.yLo / step) * step; v <= phys.yHi; v += step) {
+        const y = Math.round(Y(v)) + 0.5;
+        ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(w, y); ctx.stroke();
+        ctx.fillStyle = C.muted; ctx.fillText(String(v), 0, y);
+      }
+      ctx.strokeStyle = C.pres; ctx.lineWidth = 2.2; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      let pen = false;
+      for (let i = 30; i < w; i++) {
+        const v = phys.buf[i];
+        if (isNaN(v)) { pen = false; continue; }
+        const y = Y(v);
+        if (pen) ctx.lineTo(i, y); else { ctx.moveTo(i, y); pen = true; }
+      }
+      ctx.stroke();
+      if (!reduceMotion) {
+        const hx = (phys.head - 1 + w) % w, hv = phys.buf[hx];
+        if (!isNaN(hv) && hx >= 30) { ctx.fillStyle = C.pres; ctx.beginPath(); ctx.arc(hx, Y(hv), 3.5, 0, Math.PI * 2); ctx.fill(); }
+      }
+    }
+
+    // Corazón
+    const c = reduceMotion ? 0 : contraction(phys.phase);
+    const contr = clamp(p.contr, 0.3, 2.5);
+    const sc = 1 - 0.075 * c * Math.sqrt(contr);
+    $('#heartBody').setAttribute('transform', 'translate(100 122) scale(' + sc.toFixed(4) + ') translate(-100 -122)');
+    $('#aortaFlow').setAttribute('stroke-opacity', (0.55 * c * clamp(p.sv / BASE.sv, 0.3, 1.6)).toFixed(3));
+
+    // Arteriola: el radio de la luz sigue a la resistencia (Poiseuille, R ∝ 1/r⁴), exagerado para que se vea
+    const target = clamp(56 * Math.pow(p.svr, -0.85), 14, 74);
+    phys.lumen += (target - phys.lumen) * (1 - Math.exp(-dt * 3));
+    const rl = phys.lumen * (1 + (reduceMotion ? 0 : 0.035 * c * clamp(pp / 40, 0.2, 2.5)));
+    const outer = 84;
+    const wall = outer - rl;
+    $('#artMedia').setAttribute('r', ((outer + rl) / 2).toFixed(2));
+    $('#artMedia').setAttribute('stroke-width', wall.toFixed(2));
+    $('#artLumen').setAttribute('r', rl.toFixed(2));
+    $('#artEndo').setAttribute('r', rl.toFixed(2));
+    const rm = (outer + rl) / 2;
+    const segLen = 2 * Math.PI * rm / phys.cells.length;
+    phys.cells.forEach((el, i) => {
+      const ang = i / phys.cells.length * 360 + 5;
+      const rad = ang * Math.PI / 180;
+      el.setAttribute('cx', (100 + rm * Math.cos(rad)).toFixed(2));
+      el.setAttribute('cy', (100 + rm * Math.sin(rad)).toFixed(2));
+      el.setAttribute('rx', clamp(segLen * 0.42, 3, 30).toFixed(2));
+      el.setAttribute('ry', clamp(wall * 0.26, 1.5, 14).toFixed(2));
+      el.setAttribute('transform', 'rotate(' + (ang + 90).toFixed(1) + ' ' + (100 + rm * Math.cos(rad)).toFixed(2) + ' ' + (100 + rm * Math.sin(rad)).toFixed(2) + ')');
+    });
+    const k = clamp(rl / 56, 0.45, 1.15);
+    const flow = clamp(p.co / 5, 0.2, 3);
+    phys.rbc.forEach(b => {
+      if (!reduceMotion) { b.a += dt * (0.35 + b.w) * flow; b.ph += dt * 1.3; }
+      const rr = Math.max(0, rl - 9 * k) * clamp(b.f + 0.08 * Math.sin(b.ph), 0, 1);
+      b.el.setAttribute('transform', 'translate(' + (100 + rr * Math.cos(b.a)).toFixed(2) + ' ' + (100 + rr * Math.sin(b.a)).toFixed(2) + ') scale(' + k.toFixed(3) + ')');
     });
 
-    document.getElementById('btnInject').onclick = executeInjection;
-
-    btnTogglePlay.onclick = () => {
-      isRunning = !isRunning;
-      document.getElementById('playIcon').textContent = isRunning ? '⏸' : '▶';
-      document.getElementById('playText').textContent = isRunning ? 'Pausar' : 'Reanudar';
-      document.getElementById('statusDot').style.background = isRunning ? 'var(--c-ocean-teal)' : 'var(--c-crimson)';
-    };
-
-    document.getElementById('btnReset').onclick = () => {
-      simTime = 0;
-      systolic = 120.0;
-      diastolic = 80.0;
-      PAM = 93.3;
-      FC = 72.0;
-      baroTone = 0.0;
-      currentYMin = defaultYMin;
-      currentYMax = defaultYMax;
-      DRUGS.forEach(d => activeConcentrations[d.id] = 0);
-      historyPoints.length = 0;
-      injectionEvents.length = 0;
-
-      for (let i = 0; i < 50; i++) {
-        simTime += 0.1;
-        historyPoints.push({ t: simTime, sys: 120, dia: 80, pam: 93.3, fc: 72 });
+    // Nervios autonómicos
+    const sym = p.sym * p.gT, vag = p.vag * p.gT;
+    [['sym', sym, 2.6, $('#laneSym'), C.sym], ['vag', vag, 3.2, $('#laneVag'), C.vag]].forEach(([key, tone, base, canvas, col]) => {
+      const lane = phys.lanes[key];
+      const rate = Math.min(28, base * tone);
+      if (!reduceMotion) {
+        lane.acc += rate * dt * (0.7 + 0.6 * Math.random());
+        while (lane.acc >= 1) { lane.spikes.push(0); lane.acc -= 1; }
+        lane.spikes = lane.spikes.map(x => x + dt / 1.1).filter(x => x < 1);
       }
-
-      updateTelemetryUI();
-      updateHistoryUI();
-    };
-
-    document.getElementById('btnExportCSV').onclick = () => {
-      if (historyPoints.length === 0) return;
-      let csv = "Tiempo_s,PA_Sistolica_mmHg,PA_Diastolica_mmHg,PAM_mmHg,FC_lpm\n";
-      historyPoints.forEach(p => {
-        csv += `${p.t.toFixed(1)},${p.sys.toFixed(1)},${p.dia.toFixed(1)},${p.pam.toFixed(1)},${p.fc.toFixed(1)}\n`;
+      const sz = sizeCanvas(canvas);
+      if (!sz) return;
+      const { ctx, w, h } = sz;
+      ctx.clearRect(0, 0, w, h);
+      const y = h / 2;
+      ctx.strokeStyle = C['line-strong']; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(4, y); ctx.lineTo(w - 4, y); ctx.stroke();
+      const spikes = reduceMotion ? Array.from({ length: Math.min(12, Math.round(rate)) }, (_, i) => (i + 0.5) / Math.max(1, Math.min(12, Math.round(rate)))) : lane.spikes;
+      spikes.forEach(x => {
+        const px = 4 + x * (w - 8);
+        const g = ctx.createLinearGradient(px - 22, 0, px, 0);
+        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, col);
+        ctx.strokeStyle = g; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(Math.max(4, px - 22), y); ctx.lineTo(px, y); ctx.stroke();
+        ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(px, y - 8); ctx.lineTo(px + 3, y); ctx.lineTo(px, y + 8); ctx.lineTo(px - 2, y); ctx.closePath(); ctx.fill();
       });
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `cardiolab_${Date.now()}.csv`;
-      a.click();
-    };
+    });
 
-    /* ==========================================================
-       6. BUCLE PRINCIPAL
-       ========================================================== */
-    let lastTime = performance.now();
-    let simAccumulator = 0;
-
-    function loop(now) {
-      const dt = (now - lastTime) / 1000;
-      lastTime = now;
-
-      // En Modo En Vivo corre a tiempo real continuo
-      if (simulationMode === 'live' && isRunning) {
-        simAccumulator += dt;
-        while (simAccumulator >= 0.1) {
-          updatePhysics(0.1);
-          simAccumulator -= 0.1;
-        }
-        updateTelemetryUI();
+    // Textos (a menor frecuencia)
+    phys.frame++;
+    if (phys.frame % 6 === 1) {
+      $('#fHr').textContent = nf(hr);
+      $('#fContr').textContent = nf(p.contr, 2);
+      $('#fSvr').textContent = nf(p.svr, 2);
+      const st = $('#fSvrState');
+      if (p.svr > 1.08) { st.textContent = 'Vasoconstricción'; st.className = 'state-pill up'; }
+      else if (p.svr < 0.92) { st.textContent = 'Vasodilatación'; st.className = 'state-pill down'; }
+      else { st.textContent = 'Tono basal'; st.className = 'state-pill'; }
+      $('#fCo').textContent = nf(p.co, 1);
+      $('#fSv').textContent = nf(p.sv);
+      $('#fMap').textContent = nf(p.map);
+      $('#fPp').textContent = nf(pp);
+      $('#fPulse').textContent = nf(p.sys) + '/' + nf(p.dia) + ' mmHg';
+      const toneTxt = v => '×' + nf(v, 2) + (v > 1.12 ? ' aumentado' : v < 0.88 ? ' reducido' : ' basal');
+      $('#mSym').style.width = clamp(sym / 3, 0, 1) * 100 + '%';
+      $('#mVag').style.width = clamp(vag / 3, 0, 1) * 100 + '%';
+      $('#vSym').textContent = toneTxt(sym);
+      $('#vVag').textContent = toneTxt(vag);
+      $('#toneNote').textContent = p.gT < 0.6
+        ? 'La transmisión ganglionar está bloqueada (' + nf(p.gT * 100) + ' % de la basal): ni el simpático ni el vago llegan a sus órganos y el barorreflejo no puede compensar.'
+        : 'La marca indica el tono basal. El barorreflejo sube el tono simpático y baja el vagal cuando la presión cae, y al revés cuando sube.';
+      const base = model.points[0];
+      phys.recEls.forEach((r, i) => {
+        const [key, , bk] = REC_ROWS[i];
+        const e = p.E[key] || 0, blk = bk ? (p.B[bk] || 0) : 0;
+        r.bar.style.width = (e * 100) + '%';
+        r.base.style.left = 'calc(' + ((base.E[key] || 0) * 100) + '% - 1px)';
+        const blocked = blk > 0.3;
+        r.el.classList.toggle('blocked', blocked);
+        r.val.textContent = blocked ? 'Bloq. ' + nf(blk * 100) + ' %' : nf(e * 100) + ' %';
+      });
+      const t = p.t;
+      if (!state.replay || phys.frame % 30 === 1) {
+        const act = state.replay ? [] : model.activeDrugs(0.15).sort((a, b) => b.rel - a.rel);
+        $('#activeDrugs').innerHTML = state.replay
+          ? '<span class="card-sub">Durante la repetición se muestran solo los valores registrados.</span>'
+          : act.length ? act.map(a => '<span class="chip drug">' + esc(DRUG_BY_ID[a.id].name) + '</span>').join('') : '<span class="card-sub">Ninguno. El sujeto está en condiciones basales.</span>';
       }
-
-      drawPolygraph();
-      requestAnimationFrame(loop);
+      const other = [];
+      if (p.B.net > 0.3) other.push('Recaptación NET bloqueada ' + nf(p.B.net * 100) + ' %');
+      if (p.B.ca > 0.2) other.push('Canales de Ca²⁺ bloqueados ' + nf(p.B.ca * 100) + ' %');
+      if (p.B.ache > 0.2) other.push('AChE inhibida ' + nf(p.B.ache * 100) + ' %');
+      if (p.B.res > 0.15) other.push('Depósitos de NA al ' + nf((1 - p.B.res) * 100) + ' %');
+      $('#otherBlocksWrap').hidden = !other.length;
+      $('#otherBlocks').innerHTML = other.map(o => '<span class="chip block">' + esc(o) + '</span>').join('');
+      if (!state.replay && phys.frame % 30 === 1) syncReplayBtn();
+      void t;
     }
+  }
 
-    renderDrugGrid();
-    unitSelect.value = selectedDrug.defaultUnit;
-    handleResizeLayout();
-    updateTelemetryUI();
-    requestAnimationFrame(loop);
-  </script>
+  /* ==========================================================
+     Historial y sesión
+     ========================================================== */
+  function getSession(force) {
+    if (!session || sessionDirty || force) {
+      session = CE.interpretSession(model);
+      sessionDirty = false;
+      lastSessionAt = performance.now();
+    }
+    return session;
+  }
+
+  const controlTraceCache = new Map();
+  // Traza de la respuesta control con el mismo protocolo que controlResponse (sujeto sin fármacos previos)
+  function controlTrace(drugId, ug) {
+    const key = drugId + ':' + ug.toPrecision(6);
+    if (controlTraceCache.has(key)) return controlTraceCache.get(key);
+    const m = new CE.Model();
+    m.run(2);
+    const t0 = m.s.t;
+    m.inject(drugId, ug);
+    const d = DRUG_BY_ID[drugId];
+    m.run(d.t12 > 200 ? 60 : Math.min(120, Math.max(40, d.t12 * 4 + 20)));
+    const out = sampleTrace(m.points, t0, m.s.t);
+    controlTraceCache.set(key, out);
+    return out;
+  }
+  function sampleTrace(points, t0, t1) {
+    const i0 = clamp(idxOf(t0), 0, points.length - 1), i1 = clamp(idxOf(t1), 0, points.length - 1);
+    const pre = points[i0];
+    const step = Math.max(1, Math.floor((i1 - i0) / 160));
+    const out = [];
+    for (let i = i0; i <= i1; i += step) out.push([points[i].t - t0, points[i].map - pre.map, points[i].hr - pre.hr]);
+    return out;
+  }
+
+  function sparkSvg(obs, ctrl, k, color) {
+    const W = 160, H = 72, padT = 6, padB = 6;
+    const tMax = Math.max(obs.length ? obs[obs.length - 1][0] : 1, ctrl.length ? ctrl[ctrl.length - 1][0] : 1, 1);
+    let m = 4;
+    obs.concat(ctrl).forEach(r => { m = Math.max(m, Math.abs(r[k])); });
+    m *= 1.1;
+    const X = t => t / tMax * W, Y = v => padT + (m - v) / (2 * m) * (H - padT - padB);
+    const path = arr => arr.map((r, i) => (i ? 'L' : 'M') + X(r[0]).toFixed(1) + ' ' + Y(r[k]).toFixed(1)).join('');
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+      '<line x1="0" x2="' + W + '" y1="' + Y(0).toFixed(1) + '" y2="' + Y(0).toFixed(1) + '" stroke="var(--line-strong)" stroke-width="1" vector-effect="non-scaling-stroke"/>' +
+      '<path d="' + path(ctrl) + '" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>' +
+      '<path d="' + path(obs) + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+      '</svg>';
+  }
+
+  const TAG_ICON = { up: '↑', down: '↓', bi: '↕', flat: '' };
+  function tagChips(tags) {
+    return tags.map(t => '<span class="chip ' + t.k + '">' + (TAG_ICON[t.k] ? '<span aria-hidden="true">' + TAG_ICON[t.k] + '</span>' : '') + esc(t.label) + '</span>').join('');
+  }
+  function cmpChip(c) { return c ? '<span class="cmp cmp-' + c + '">' + esc(CE.CMP_LABEL[c]) + '</span>' : ''; }
+
+  function renderHistory() {
+    const S = getSession();
+    const items = S.items.slice();
+    const n = items.length;
+    const changed = items.filter(x => x.info.changed).length;
+    $('#histCount').innerHTML = n
+      ? n + (n === 1 ? ' administración' : ' administraciones') + '<small>' + (changed ? changed + (changed === 1 ? ' difiere' : ' difieren') + ' de su control' : 'Todas comparables a su control') + '</small>'
+      : 'Sin administraciones';
+    $('#orderSeg').hidden = n < 2;
+    const box = $('#evList');
+    if (!n) {
+      box.innerHTML = '<div class="card empty"><h3>Aún no hay administraciones</h3><p>Cada dosis que administres aparecerá aquí junto a la respuesta que tendría un sujeto sin fármacos previos.</p><button type="button" class="btn-secondary" data-goto="registro">Ir a Registro</button></div>';
+      return;
+    }
+    if (state.order === 'desc') items.reverse();
+    const lastN = model.events[model.events.length - 1].n;
+    const scrollY = window.scrollY;
+    box.innerHTML = items.map(x => {
+      const e = x.evt, d = DRUG_BY_ID[e.drugId], r = x.resp, c = x.ctrl, info = x.info;
+      const open = state.expanded.has(e.n);
+      const ongoing = state.mode === 'live' && e.n === lastN;
+      const mods = (e.ctx.modifiers || []).map(m => m.id).filter(id => id !== e.drugId).map(id => DRUG_BY_ID[id].name);
+      let body = '';
+      if (open) {
+        const obs = sampleTrace(model.points, e.t, e.t + r.window);
+        const ctr = controlTrace(e.drugId, e.ug);
+        body =
+          '<div class="ev-body" id="evb-' + e.n + '">' +
+          '<table class="cmp-table"><thead><tr><th>Pico</th><th>Observado</th><th>Control</th><th>Comparación</th></tr></thead><tbody>' +
+          '<tr><td>PAM</td><td>' + sg(r.map.peak) + ' mmHg</td><td>' + sg(c.map.peak) + '</td><td>' + cmpChip(info.cmp.map) + '</td></tr>' +
+          '<tr><td>FC</td><td>' + sg(r.hr.peak) + ' lpm</td><td>' + sg(c.hr.peak) + '</td><td>' + cmpChip(info.cmp.hr) + '</td></tr>' +
+          '<tr><td>SIS</td><td>' + sg(r.sys.peak) + ' mmHg</td><td>' + sg(c.sys.peak) + '</td><td></td></tr>' +
+          '<tr><td>DIA</td><td>' + sg(r.dia.peak) + ' mmHg</td><td>' + sg(c.dia.peak) + '</td><td></td></tr>' +
+          '</tbody></table>' +
+          '<div class="sparks">' +
+          '<div class="spark"><div class="spark-title"><span>ΔPAM, mmHg</span><span>' + fmtT(Math.max(r.window, 1)) + '</span></div>' + sparkSvg(obs, ctr, 1, 'var(--pres)') + '</div>' +
+          '<div class="spark"><div class="spark-title"><span>ΔFC, lpm</span></div>' + sparkSvg(obs, ctr, 2, 'var(--hr)') + '</div>' +
+          '<div class="spark-legend"><span><i></i>Observado</span><span><i class="dash"></i>Control sin fármacos previos</span></div>' +
+          '</div>' +
+          (info.notes.length ? '<ul class="notes">' + info.notes.map(t => '<li>' + esc(t) + '</li>').join('') + '</ul>' : '') +
+          '<p class="mech"><b>' + esc(d.mech) + '.</b> ' + esc(info.mechanism) + '</p>' +
+          '<p class="mech">Basal previa: ' + nf(e.pre.sys) + '/' + nf(e.pre.dia) + ' mmHg, PAM ' + nf(e.pre.map) + ', FC ' + nf(e.pre.hr) + ' lpm.' +
+          (mods.length ? ' Presentes: ' + esc(mods.join(', ')) + '.' : ' Sin otros fármacos activos.') +
+          (r.duration > 0 ? ' Duración del efecto sobre la PAM: ' + fmtT(r.duration) + '.' : '') + '</p>' +
+          '<div class="ev-actions"><button type="button" class="btn-secondary" data-view="' + e.n + '">Ver en la gráfica</button>' +
+          '<button type="button" class="btn-secondary" data-replay="' + e.n + '">Ver en Fisiología</button></div>' +
+          '</div>';
+      }
+      return '<article class="ev' + (info.changed ? ' changed' : '') + '">' +
+        '<button type="button" class="ev-head" data-n="' + e.n + '" aria-expanded="' + open + '" aria-controls="evb-' + e.n + '">' +
+        '<span class="ev-n">' + e.n + '</span>' +
+        '<span class="ev-main"><span class="ev-name">' + esc(d.name) + ' <span class="ev-dose">' + esc(e.doseLabel || fmtUg(e.ug)) + '</span></span>' +
+        '<span class="ev-meta">t ' + fmtT(e.t) + (ongoing ? ', respuesta en curso' : '') + (info.changed ? ', difiere del control' : '') + '</span>' +
+        '<span class="chips">' + tagChips(info.tags) + '</span></span>' +
+        '<span class="ev-right"><span>PAM ' + sg(r.map.peak) + '</span><span>FC ' + sg(r.hr.peak) + '</span>' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></span>' +
+        '</button>' + body + '</article>';
+    }).join('');
+    window.scrollTo(0, scrollY);
+  }
+
+  function renderSession() {
+    const S = getSession();
+    const box = $('#sessionBox');
+    if (!S.items.length) {
+      box.innerHTML = '<div class="card empty"><h3>La sesión está vacía</h3><p>Administra un fármaco y aquí aparecerán el resumen, las respuestas que difieren del control y los bloqueos que persisten.</p><button type="button" class="btn-secondary" data-goto="registro">Ir a Registro</button></div>' + actionsCard();
+      return;
+    }
+    const st = S.stats, f = st.final;
+    const statsHtml =
+      '<div class="stats">' +
+      stat('Duración', fmtT(st.duration)) +
+      stat('Administraciones', st.n) +
+      stat('Fármacos distintos', st.drugs) +
+      stat('PAM mín. y máx.', nf(st.minMap) + '–' + nf(st.maxMap), 'mmHg') +
+      stat('FC mín. y máx.', nf(st.minHr) + '–' + nf(st.maxHr), 'lpm') +
+      stat('Estado final', nf(f.sys) + '/' + nf(f.dia), 'FC ' + nf(f.hr)) +
+      '</div>';
+    const blocks = S.blocks.map(b => '<span class="chip block">Bloqueo ' + esc(b) + '</span>')
+      .concat(S.extras.map(x => '<span class="chip block">' + esc(x.charAt(0).toUpperCase() + x.slice(1)) + '</span>'));
+    const findings = S.findings.length
+      ? '<ul class="concl">' + S.findings.map(x => '<li><b>#' + x.evt.n + ' ' + esc(DRUG_BY_ID[x.evt.drugId].name) + '</b>: presión ' + esc(CE.CMP_LABEL[x.info.cmp.map].toLowerCase()) + ', FC ' + esc(CE.CMP_LABEL[x.info.cmp.hr].toLowerCase()) + '.</li>').join('') + '</ul>'
+      : '<p class="card-sub">Todas las respuestas fueron comparables a su control.</p>';
+    box.innerHTML =
+      '<div class="card"><div class="card-head"><h2 class="card-title">Resumen de la sesión</h2></div>' + statsHtml + '</div>' +
+      '<div class="card"><div class="card-head"><h2 class="card-title">Conclusiones</h2></div><ul class="concl">' +
+      S.conclusions.map(c => '<li>' + esc(c) + '</li>').join('') + '</ul></div>' +
+      '<div class="card"><div class="card-head"><h2 class="card-title">Respuestas que difieren del control</h2><span class="card-sub">' + S.findings.length + ' de ' + S.items.length + '</span></div>' + findings + '</div>' +
+      '<div class="card"><div class="card-head"><h2 class="card-title">Al final de la sesión</h2></div>' +
+      (blocks.length ? '<div class="chips">' + blocks.join('') + '</div>' : '<p class="card-sub">No persisten bloqueos relevantes.</p>') + '</div>' +
+      actionsCard();
+  }
+  function stat(label, val, small) {
+    return '<div class="stat"><span>' + esc(label) + '</span><b>' + esc(String(val)) + '</b>' + (small ? ' <small>' + esc(small) + '</small>' : '') + '</div>';
+  }
+  function actionsCard() {
+    return '<div class="card"><div class="card-head"><h2 class="card-title">Datos</h2></div><div class="actions">' +
+      '<button type="button" class="btn-secondary" data-act="csv-points">Exportar registro (CSV)</button>' +
+      '<button type="button" class="btn-secondary" data-act="csv-events">Exportar administraciones (CSV)</button>' +
+      '<button type="button" class="btn-secondary danger" data-act="reset">Reiniciar sesión</button></div></div>';
+  }
+
+  /* ==========================================================
+     Exportación CSV
+     ========================================================== */
+  function csvCell(v) {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'number') return isFinite(v) ? String(Math.round(v * 1000) / 1000) : '';
+    const s = String(v);
+    return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function download(name, rows) {
+    const text = '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+    const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  function stamp() {
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
+  }
+  function exportPoints() {
+    const evAt = {};
+    model.events.forEach(e => { const i = idxOf(e.t); evAt[i] = (evAt[i] ? evAt[i] + ' | ' : '') + '#' + e.n + ' ' + DRUG_BY_ID[e.drugId].name + ' ' + (e.doseLabel || fmtUg(e.ug)); });
+    const rows = [['t_s', 'sis_mmHg', 'dia_mmHg', 'pam_mmHg', 'fc_lpm', 'vs_mL', 'gc_L_min', 'rvp_rel', 'contractilidad_rel', 'tono_simpatico', 'tono_vagal', 'transmision_ganglionar', 'administracion']];
+    model.points.forEach((p, i) => rows.push([p.t, p.sys, p.dia, p.map, p.hr, p.sv, p.co, p.svr, p.contr, p.sym, p.vag, p.gT, evAt[i] || '']));
+    download('cardiolab-registro-' + stamp() + '.csv', rows);
+    toast('Registro exportado: ' + model.points.length.toLocaleString('es') + ' filas');
+  }
+  function exportEvents() {
+    const S = getSession(true);
+    if (!S.items.length) { toast('No hay administraciones que exportar.'); return; }
+    const rows = [['n', 't_s', 'farmaco', 'dosis', 'dosis_ug', 'pre_sis', 'pre_dia', 'pre_pam', 'pre_fc', 'pico_dPAM', 'pico_dSIS', 'pico_dDIA', 'pico_dFC', 'control_dPAM', 'control_dFC', 'comparacion_PAM', 'comparacion_FC', 'respuesta', 'farmacos_presentes', 'interpretacion']];
+    S.items.forEach(x => {
+      const e = x.evt, r = x.resp, c = x.ctrl;
+      rows.push([e.n, e.t, DRUG_BY_ID[e.drugId].name, e.doseLabel || fmtUg(e.ug), e.ug, e.pre.sys, e.pre.dia, e.pre.map, e.pre.hr,
+        r.map.peak, r.sys.peak, r.dia.peak, r.hr.peak, c.map.peak, c.hr.peak,
+        CE.CMP_LABEL[x.info.cmp.map], CE.CMP_LABEL[x.info.cmp.hr], x.info.tags.map(t => t.label).join(' / '),
+        (e.ctx.modifiers || []).map(m => m.id).filter(id => id !== e.drugId).map(id => DRUG_BY_ID[id].name).join(' / '),
+        x.info.notes.join(' ')]);
+    });
+    download('cardiolab-administraciones-' + stamp() + '.csv', rows);
+    toast('Administraciones exportadas: ' + S.items.length);
+  }
+
+  /* ==========================================================
+     Navegación, modo y reinicio
+     ========================================================== */
+  function setTab(tab) {
+    if (state.tab === tab) { window.scrollTo(0, 0); return; }
+    state.tab = tab;
+    ['registro', 'fisio', 'historial', 'sesion'].forEach(t => {
+      $('#tab-' + t).hidden = t !== tab;
+      $('#t-' + t).setAttribute('aria-selected', String(t === tab));
+    });
+    placeAdmin();
+    window.scrollTo(0, 0);
+    chart.dirty = true;
+    if (tab === 'historial') renderHistory();
+    if (tab === 'sesion') renderSession();
+    if (tab === 'fisio') syncReplayBtn();
+    if (tab !== 'fisio' && state.replay) stopReplay(false);
+  }
+
+  function setMode(mode) {
+    state.mode = mode; LS.set('mode', mode);
+    $$('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+    $('#liveBar').hidden = mode !== 'live';
+    state.view = mode === 'live' ? { span: 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
+    if (mode === 'live') setRunning(true);
+    syncRangeSeg();
+    renderModeHint();
+    sessionDirty = true;
+    chart.dirty = true;
+  }
+  function setRunning(on) {
+    state.running = on;
+    const btn = $('#playBtn');
+    btn.setAttribute('aria-pressed', String(on));
+    $('#playLabel').textContent = on ? 'Pausar' : 'Reanudar';
+    $('#playIcon').innerHTML = on
+      ? '<rect x="3" y="2.5" width="3.4" height="11" rx="1"/><rect x="9.6" y="2.5" width="3.4" height="11" rx="1"/>'
+      : '<path d="M4 2.6v10.8a.8.8 0 0 0 1.2.7l8.6-5.4a.8.8 0 0 0 0-1.4L5.2 1.9a.8.8 0 0 0-1.2.7z"/>';
+  }
+  function setSpeed(s) {
+    state.speed = s; LS.set('speed', s);
+    $$('#speedSeg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.speed === s)));
+  }
+
+  function resetSession() {
+    model = freshModel();
+    state.expanded.clear();
+    state.cursorT = null;
+    state.replay = null;
+    state.view = state.mode === 'live' ? { span: 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
+    syncRangeSeg();
+    dataChanged(true);
+    syncReplayBtn();
+    toast('Sesión reiniciada');
+  }
+
+  function dataChanged(heavy) {
+    chart.dirty = true;
+    sessionDirty = true;
+    renderVitals();
+    const n = model.events.length;
+    const badge = $('#histBadge');
+    badge.hidden = !n; badge.textContent = n;
+    if (heavy) {
+      if (state.tab === 'historial') renderHistory();
+      if (state.tab === 'sesion') renderSession();
+      syncReplayBtn();
+    }
+  }
+
+  /* ---------- Eventos de la interfaz ---------- */
+  $('#tabbar').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
+  $('#tabbar').addEventListener('keydown', e => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const tabs = $$('#tabbar [role=tab]');
+    const i = tabs.indexOf(document.activeElement);
+    if (i < 0) return;
+    const nx = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+    nx.focus(); setTab(nx.dataset.tab);
+  });
+  $('#modeSeg').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b && b.dataset.mode !== state.mode) setMode(b.dataset.mode); });
+  $('#rangeSeg').addEventListener('click', e => {
+    const b = e.target.closest('[data-span]'); if (!b) return;
+    state.view = { span: b.dataset.span === 'all' ? Infinity : +b.dataset.span, follow: true, x0: 0 };
+    syncRangeSeg(); chart.dirty = true;
+  });
+  $('#toEnd').addEventListener('click', () => { state.view.follow = true; syncRangeSeg(); chart.dirty = true; });
+  $('#playBtn').addEventListener('click', () => { setRunning(!state.running); syncReplayBtn(); });
+  $('#speedSeg').addEventListener('click', e => { const b = e.target.closest('[data-speed]'); if (b) setSpeed(+b.dataset.speed); });
+  $('#orderSeg').addEventListener('click', e => {
+    const b = e.target.closest('[data-order]'); if (!b) return;
+    state.order = b.dataset.order; LS.set('order', state.order);
+    $$('#orderSeg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    renderHistory();
+  });
+  $('#evList').addEventListener('click', e => {
+    const h = e.target.closest('.ev-head');
+    if (h) {
+      const n = +h.dataset.n;
+      if (state.expanded.has(n)) state.expanded.delete(n); else state.expanded.add(n);
+      renderHistory();
+      const again = $('.ev-head[data-n="' + n + '"]');
+      if (again) again.focus({ preventScroll: true });
+      return;
+    }
+    const v = e.target.closest('[data-view]');
+    if (v) {
+      const ev = model.events.find(x => x.n === +v.dataset.view);
+      const item = getSession().items.find(x => x.evt.n === ev.n);
+      const end = ev.t + item.resp.window;
+      setTab('registro');
+      setView(Math.max(0, ev.t - 10), Math.max(20, end - ev.t + 20), false);
+      state.cursorT = ev.t + item.resp.map.tPeak;
+      chart.dirty = true;
+      return;
+    }
+    const r = e.target.closest('[data-replay]');
+    if (r) { setTab('fisio'); startReplay(+r.dataset.replay); }
+  });
+  document.addEventListener('click', e => {
+    const g = e.target.closest('[data-goto]'); if (g) setTab(g.dataset.goto);
+    const a = e.target.closest('#sessionBox [data-act]'); if (a) runAction(a.dataset.act);
+  });
+
+  // Menú
+  const menu = $('#menu'), menuBtn = $('#menuBtn');
+  function toggleMenu(open) {
+    menu.hidden = !open; menuBtn.setAttribute('aria-expanded', String(open));
+    if (open) { const f = $('button', menu); if (f) f.focus(); }
+  }
+  menuBtn.addEventListener('click', e => { e.stopPropagation(); toggleMenu(menu.hidden); });
+  document.addEventListener('click', e => { if (!menu.hidden && !menu.contains(e.target)) toggleMenu(false); });
+  menu.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    if (b.dataset.act !== 'theme') toggleMenu(false);
+    runAction(b.dataset.act);
+  });
+  function runAction(act) {
+    if (act === 'theme') {
+      state.theme = ({ auto: 'light', light: 'dark', dark: 'auto' })[state.theme];
+      LS.set('theme', state.theme); applyTheme();
+    } else if (act === 'csv-points') exportPoints();
+    else if (act === 'csv-events') exportEvents();
+    else if (act === 'reset') {
+      const dlg = $('#resetDlg');
+      if (dlg.showModal) dlg.showModal(); else if (window.confirm('¿Reiniciar la sesión? Se borran el registro y el historial.')) resetSession();
+    }
+  }
+  $('#resetCancel').addEventListener('click', () => $('#resetDlg').close());
+  $('#resetOk').addEventListener('click', () => { $('#resetDlg').close(); resetSession(); });
+
+  // Administración
+  $('#drugPick', adminEl).addEventListener('click', openSheet);
+  doseIn.addEventListener('input', updateDose);
+  weightIn.addEventListener('input', updateDose);
+  unitSel.addEventListener('change', updateDose);
+  doseIn.addEventListener('keydown', e => { if (e.key === 'Enter') administer(); });
+  weightIn.addEventListener('keydown', e => { if (e.key === 'Enter') administer(); });
+  $('.dose-chips', adminEl).addEventListener('click', e => { const b = e.target.closest('[data-mul]'); if (b) scaleDose(b.dataset.mul); });
+  $('#giveBtn', adminEl).addEventListener('click', administer);
+
+  // Selector
+  sheet.addEventListener('click', e => {
+    if (e.target.closest('[data-close]')) { closeSheet(); return; }
+    const c = e.target.closest('[data-cat]');
+    if (c) { sheetCat = c.dataset.cat; buildCatChips(); renderDrugList(); $('#drugList').scrollTop = 0; return; }
+    const it = e.target.closest('.drug-item');
+    if (it) { selectDrug(it.dataset.id); closeSheet(); }
+  });
+  $('#drugSearch').addEventListener('input', renderDrugList);
+  $('#drugSearch').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { const f = $('.drug-item', sheet); if (f) { selectDrug(f.dataset.id); closeSheet(); } }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!sheet.hidden) closeSheet();
+    else if (!menu.hidden) { toggleMenu(false); menuBtn.focus(); }
+    else if (state.cursorT !== null) { state.cursorT = null; chart.dirty = true; }
+  });
+  sheet.addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return;
+    const f = $$('button, input', $('.sheet-panel')).filter(x => x.offsetParent !== null);
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  });
+
+  $('#rpBtn').addEventListener('click', () => {
+    if (state.replay) stopReplay(false);
+    else { const last = model.events[model.events.length - 1]; if (last) startReplay(last.n); }
+  });
+
+  window.addEventListener('resize', () => { chart.dirty = true; });
+  const schemeMq = mq('(prefers-color-scheme: dark)');
+  if (schemeMq.addEventListener) schemeMq.addEventListener('change', readColors);
+
+  /* ---------- Bucle principal ---------- */
+  let lastFrame = performance.now(), simAcc = 0, lastMiniDraw = 0;
+  function frame(now) {
+    const dt = Math.min(0.1, Math.max(0, (now - lastFrame) / 1000));
+    lastFrame = now;
+    if (state.mode === 'live' && state.running) {
+      simAcc += dt * state.speed;
+      let n = Math.floor(simAcc / DT + 1e-9);
+      if (n > 0) {
+        simAcc -= n * DT;
+        n = Math.min(n, 1200);
+        for (let i = 0; i < n; i++) model.step(DT);
+        dataChanged(false);
+        if ((state.tab === 'historial' || state.tab === 'sesion') && now - lastSessionAt > 1200) {
+          if (state.tab === 'historial') renderHistory(); else renderSession();
+        }
+      }
+    }
+    if (state.tab === 'registro' && chart.dirty) {
+      if (drawChart()) {
+        if (now - lastMiniDraw > 120 || !(state.mode === 'live' && state.running)) { drawMini(); lastMiniDraw = now; }
+        renderViewLabel();
+        chart.dirty = false;
+      }
+    }
+    if (state.tab === 'fisio') stepPhysio(dt);
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- Inicio ---------- */
+  model = freshModel();
+  placeAdmin();
+  applyTheme();
+  selectDrug(state.drugId);
+  weightIn.value = trimNum(state.weight, 1);
+  setSpeed(state.speed);
+  setRunning(true);
+  setMode(state.mode);
+  $$('#orderSeg button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.order === state.order)));
+  dataChanged(true);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { chart.dirty = true; });
+  requestAnimationFrame(frame);
+})();
+
+</script>
 </body>
 </html>
