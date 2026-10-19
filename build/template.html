@@ -325,6 +325,23 @@ main {
 .btn-secondary.danger { color: var(--rose-text); }
 .hint { font-size: 12.5px; color: var(--muted); margin: 10px 2px 0; }
 
+.animal-row { display: flex; align-items: center; gap: 10px; padding: 0 0 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+.animal-row svg { flex: none; }
+.animal-info { display: grid; min-width: 0; flex: 1; }
+.animal-name { font-weight: 700; font-size: 14.5px; }
+.animal-prep { font-size: 12.5px; color: var(--muted); }
+.btn-secondary.small { min-height: 34px; padding: 0 12px; font-size: 13.5px; }
+.animal-dlg { width: min(92vw, 440px); }
+.dlg-label { font-size: 13px; font-weight: 700; color: var(--ink-2); margin: 14px 0 6px; }
+.choice { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; }
+.choice button { display: grid; gap: 1px; text-align: left; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 12px; padding: 9px 11px; font-size: 14px; }
+.choice button span { font-size: 12px; color: var(--muted); }
+.choice button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.dlg-desc { font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0 !important; }
+.dlg-warn { font-size: 13.5px; color: var(--rose-text); margin: 10px 0 0 !important; }
+.animal-dlg .actions { margin-top: 18px; }
+.btn-primary.inline { width: auto; margin-top: 0; min-height: 42px; padding: 0 16px; font-size: 14.5px; border-radius: 12px; }
+
 /* ---------- Fisiología ---------- */
 .replay { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; }
 .replay-title { font-weight: 700; font-size: 15px; }
@@ -627,7 +644,7 @@ dialog .actions { justify-content: flex-end; }
       <hr>
       <button role="menuitem" data-act="reset" class="danger">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4h4"/></svg>
-        Reiniciar sesión
+        Terminar experimento
       </button>
     </div>
   </div>
@@ -754,7 +771,7 @@ dialog .actions { justify-content: flex-end; }
             </figure>
           </div>
           <div class="derived">
-            <div><span>Gasto cardíaco</span><b><span id="fCo">5,0</span> <small>L/min</small></b></div>
+            <div><span>Gasto cardíaco</span><b><span id="fCo">5,0</span> <small id="fCoU">L/min</small></b></div>
             <div><span>Vol. sistólico</span><b><span id="fSv">70</span> <small>mL</small></b></div>
             <div><span>PAM</span><b><span id="fMap">93</span> <small>mmHg</small></b></div>
             <div><span>Presión de pulso</span><b><span id="fPp">40</span> <small>mmHg</small></b></div>
@@ -823,6 +840,11 @@ dialog .actions { justify-content: flex-end; }
 <template id="adminTpl">
   <section class="card admin" id="admin" aria-labelledby="adminTitle">
     <h2 class="card-title" id="adminTitle">Administrar</h2>
+    <div class="animal-row">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="10" fill="var(--accent-soft)"/><path d="M8 21c0-5 4-8 9-8 2.2 0 4 .7 5.4 1.9L26 13l-.6 4.3c.4.9.6 2 .6 3.1 0 1.2-1 1.6-2.6 1.6H11.5" fill="none" stroke="var(--accent-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="22.5" cy="17.5" r="1" fill="var(--accent-text)"/><path d="M8 21c-2 0-3 1.2-3 3" fill="none" stroke="var(--accent-text)" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="animal-info"><span class="animal-name" id="animalName"></span><span class="animal-prep" id="animalPrep"></span></div>
+      <button type="button" class="btn-secondary small" id="animalBtn" aria-haspopup="dialog">Cambiar</button>
+    </div>
     <button type="button" class="drug-pick" id="drugPick" aria-haspopup="dialog">
       <span class="dp-cat" id="dpCat"></span>
       <span class="dp-name" id="dpName"></span>
@@ -874,11 +896,25 @@ dialog .actions { justify-content: flex-end; }
 </div>
 
 <dialog id="resetDlg" aria-labelledby="resetTitle">
-  <h2 id="resetTitle">¿Reiniciar la sesión?</h2>
-  <p>Se borran el registro y el historial de administraciones. Si quieres conservarlos, exporta antes el CSV.</p>
+  <h2 id="resetTitle">¿Terminar el experimento?</h2>
+  <p>Empiezas con un animal nuevo, del mismo tipo y sin pretratamiento. Se borran el registro y el historial; si quieres conservarlos, exporta antes el CSV.</p>
   <div class="actions">
     <button type="button" class="btn-secondary" value="cancel" id="resetCancel">Cancelar</button>
-    <button type="button" class="btn-danger" id="resetOk">Reiniciar</button>
+    <button type="button" class="btn-danger" id="resetOk">Terminar experimento</button>
+  </div>
+</dialog>
+
+<dialog id="animalDlg" aria-labelledby="animalTitle" class="animal-dlg">
+  <h2 id="animalTitle">Elegir animal</h2>
+  <div class="dlg-label">Especie</div>
+  <div class="choice" id="dlgSpecies" role="group" aria-label="Especie"></div>
+  <div class="dlg-label">Preparación</div>
+  <div class="choice" id="dlgPrep" role="group" aria-label="Preparación"></div>
+  <p class="dlg-desc" id="dlgPrepDesc"></p>
+  <p class="dlg-warn" id="dlgWarn" hidden>Se termina el experimento actual: se borran el registro y el historial.</p>
+  <div class="actions">
+    <button type="button" class="btn-secondary" id="animalCancel">Cancelar</button>
+    <button type="button" class="btn-primary inline" id="animalOk">Empezar con este animal</button>
   </div>
 </dialog>
 

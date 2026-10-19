@@ -10,6 +10,34 @@
   const DT = 0.1;
   const BASE = { map: 93.3, hr: 72, sv: 70, pp: 40 };
 
+  /* Especies. El modelo farmacodinámico es relativo (fracción de ocupación y cambios
+     respecto al basal), así que cada especie aporta sus valores basales, la escala de
+     potencia y cómo se traduce el estímulo cronotrópico en lpm.
+     · scale: µg equivalentes del modelo por µg reales en el animal. En la rata,
+       1 µg/kg equivale a 10 µg del modelo (rata de 300 g → 10 / 0,3).
+     · hrExp: compresión de la respuesta de FC (la rata parte de una FC alta y su
+       margen relativo es menor).
+     · thr: umbral de cambio relevante para la interpretación (mmHg y lpm). */
+  const SPECIES = {
+    humano: {
+      id: 'humano', name: 'Humano', detail: 'adulto de 70 kg', weight: 70,
+      base: BASE, hrMin: 20, hrMax: 280, hrExp: 1, scale: 1, thr: { map: 4, hr: 4 }
+    },
+    rata: {
+      id: 'rata', name: 'Rata', detail: 'anestesiada, 300 g', weight: 0.3,
+      base: { map: 100, hr: 380, sv: 0.3, pp: 35 }, hrMin: 180, hrMax: 600, hrExp: 0.5, scale: 10 / 0.3, thr: { map: 4, hr: 12 }
+    }
+  };
+
+  /* Preparaciones del animal */
+  const PREPS = {
+    normal: { id: 'normal', name: 'Normal', desc: 'Animal anestesiado con reflejos y tono autónomo intactos.' },
+    reserpinizado: { id: 'reserpinizado', name: 'Reserpinizado', store: 0.05,
+      desc: 'Pretratado con reserpina: los depósitos de noradrenalina están casi vacíos (5 %).' },
+    descentralizado: { id: 'descentralizado', name: 'Descentralizado', pithed: true, symTone: 0.08, hrFactor: 0.72,
+      desc: 'Sin control del sistema nervioso central (desmedulado): no hay barorreflejo ni tono vagal y queda un tono simpático residual mínimo.' }
+  };
+
   const CATEGORIES = [
     { id: 'ady', name: 'Agonistas adrenérgicos' },
     { id: 'bla', name: 'Antagonistas adrenérgicos' },
@@ -60,6 +88,9 @@
     { id: 'met', name: 'Metoprolol', cat: 'bla', mech: 'Antagonista β1 selectivo', unit: 'mg', dose: 5, t12: 900, onset: 6,
       ant: { b1: 40, b2: 1500 },
       desc: 'Bloqueo β1 cardioselectivo. Baja la FC pero conserva la vasodilatación β2.' },
+    { id: 'ate', name: 'Atenolol', cat: 'bla', mech: 'Antagonista β1 selectivo', unit: 'mg', dose: 5, t12: 1200, onset: 6,
+      ant: { b1: 60, b2: 30000 },
+      desc: 'Bloqueo β1 cardioselectivo e hidrófilo. Baja la FC y anula la taquicardia β1, pero respeta la vasodilatación β2.' },
     { id: 'lab', name: 'Labetalol', cat: 'bla', mech: 'Antagonista α1, β1, β2', unit: 'mg', dose: 20, t12: 900, onset: 6,
       ant: { a1: 1500, b1: 300, b2: 600 },
       desc: 'Bloqueo mixto α1 y β. Baja la presión sin taquicardia refleja.' },
@@ -126,6 +157,17 @@
 
   const DRUG_BY_ID = {};
   DRUGS.forEach(d => { DRUG_BY_ID[d.id] = d; });
+
+  // Dosis habituales en la rata (por kg). Las de la Práctica 7 siguen la guía.
+  const RAT_DOSES = {
+    adr: [1, 'µg/kg'], nor: [1, 'µg/kg'], iso: [3, 'µg/kg'], phe: [100, 'µg/kg'], dop: [20, 'µg/kg'], dob: [25, 'µg/kg'],
+    sal: [10, 'µg/kg'], clo: [15, 'µg/kg'], phn: [200, 'µg/kg'], prz: [1000, 'µg/kg'], pro: [1000, 'µg/kg'], met: [500, 'µg/kg'],
+    ate: [1000, 'µg/kg'], lab: [2, 'mg/kg'], ach: [1, 'µg/kg'], neo: [50, 'µg/kg'], atr: [100, 'µg/kg'], tyr: [50, 'µg/kg'],
+    eph: [1, 'mg/kg'], coc: [200, 'µg/kg'], res: [100, 'µg/kg'], nic: [10, 'µg/kg'], hex: [1, 'mg/kg'], his: [1, 'µg/kg'],
+    dph: [2, 'mg/kg'], ang: [0.1, 'µg/kg'], los: [1, 'mg/kg'], avp: [0.2, 'µg/kg'], snp: [5, 'µg/kg'], ntg: [20, 'µg/kg'],
+    ver: [0.5, 'mg/kg']
+  };
+  DRUGS.forEach(d => { const r = RAT_DOSES[d.id]; d.ratDose = r ? { dose: r[0], unit: r[1] } : { dose: d.dose, unit: d.unit + '/kg' }; });
 
   const REC = ['a1', 'a2', 'b1', 'b2', 'm', 'n', 'h1', 'd1', 'v1', 'at1', 'no', 'ven', 'net', 'a2c'];
   const REC_LABEL = {
@@ -235,29 +277,57 @@
     };
   }
 
-  function freshState() {
-    return { t: 0, c: {}, ce: {}, cns: {}, sym: 1, vag: 1, store: 1, map: BASE.map, hr: BASE.hr };
+  function freshState(sp) {
+    const B = (sp || SPECIES.humano).base;
+    return { t: 0, c: {}, ce: {}, cns: {}, sym: 1, vag: 1, store: 1, map: B.map, hr: B.hr };
   }
 
   const REF = computeEffects(freshState());
-  const CO0 = BASE.hr * BASE.sv;
 
-  function hemo(s, fx) {
-    const hrTarget = clamp(BASE.hr * fx.hrf / REF.hrf, 20, 280);
-    const fill = clamp(1 - (s.hr > BASE.hr ? 0.0075 : 0.004) * (s.hr - BASE.hr), 0.5, 1.2);
-    const sv = BASE.sv * (fx.contr / REF.contr) * (fx.preload / REF.preload) * fill;
+  function hemo(s, fx, sp) {
+    sp = sp || SPECIES.humano;
+    const B = sp.base;
+    let hrTarget, dHr, hrRel;
+    if (sp.hrExp === 1) {
+      hrTarget = clamp(B.hr * fx.hrf / REF.hrf, sp.hrMin, sp.hrMax);
+      dHr = s.hr - B.hr;
+    } else {
+      // La FC de la especie se traduce a su equivalente en el modelo de referencia
+      hrTarget = clamp(B.hr * Math.pow(fx.hrf / REF.hrf, sp.hrExp), sp.hrMin, sp.hrMax);
+      hrRel = Math.pow(s.hr / B.hr, 1 / sp.hrExp);
+      dHr = (hrRel - 1) * BASE.hr;
+    }
+    const fill = clamp(1 - (dHr > 0 ? 0.0075 : 0.004) * dHr, 0.5, 1.2);
+    const sv = B.sv * (fx.contr / REF.contr) * (fx.preload / REF.preload) * fill;
     const co = s.hr * sv;
     const svr = fx.svrf / REF.svrf;
-    const mapTarget = clamp(BASE.map * (co / CO0) * svr, 15, 260);
+    const coRel = sp.hrExp === 1 ? co / (B.hr * B.sv) : hrRel * sv / B.sv;
+    const mapTarget = clamp(B.map * coRel * svr, 15, 260);
     return { hrTarget, sv, co, svr, mapTarget };
   }
 
   class Model {
-    constructor() {
-      this.s = freshState();
+    constructor(opts) {
+      opts = opts || {};
+      this.sp = SPECIES[opts.species] || SPECIES.humano;
+      this.prep = PREPS[opts.prep] || PREPS.normal;
+      this.species = this.sp.id;
+      this.prepId = this.prep.id;
+      this.s = freshState(this.sp);
+      if (this.prep.pithed) { this.s.sym = this.prep.symTone; this.s.vag = 0; }
       this.points = [];
       this.events = [];
       this.record();
+      // Una preparación distinta de la normal se deja estabilizar antes de empezar el registro
+      if (this.prep !== PREPS.normal) this.equilibrate(this.prep.store !== undefined ? 400 : 90);
+    }
+
+    equilibrate(seconds) {
+      this.run(seconds);
+      const last = this.points[this.points.length - 1];
+      this.s.t = 0;
+      last.t = 0;
+      this.points = [last];
     }
 
     activeDrugs(threshold) {
@@ -277,7 +347,8 @@
       const s = this.s;
       const fx = computeEffects(s);
       const pre = this.points[this.points.length - 1];
-      s.c[drugId] = (s.c[drugId] || 0) + micrograms;
+      // Cantidad en µg equivalentes del modelo (en el humano, la misma)
+      s.c[drugId] = (s.c[drugId] || 0) + micrograms * this.sp.scale;
       if (s.ce[drugId] === undefined) s.ce[drugId] = 0;
       if (d.cns && s.cns[drugId] === undefined) s.cns[drugId] = 0;
       const evt = Object.assign({
@@ -285,6 +356,8 @@
         t: s.t,
         drugId,
         ug: micrograms,
+        species: this.sp.id,
+        prep: this.prep.id,
         pre: { sys: pre.sys, dia: pre.dia, map: pre.map, hr: pre.hr },
         ctx: { B: Object.assign({}, fx.B), modifiers: this.activeDrugs(0.3).filter(a => a.id !== drugId || true) }
       }, meta || {});
@@ -310,20 +383,26 @@
       }
       const fx = computeEffects(s);
       // Depósitos de noradrenalina (reserpina)
-      const storeTarget = 1 - 0.95 * fx.Eres;
+      let storeTarget = 1 - 0.95 * fx.Eres;
+      if (this.prep.store !== undefined) storeTarget = Math.min(storeTarget, this.prep.store);
       s.store += (storeTarget - s.store) * (1 - Math.exp(-dt / (storeTarget < s.store ? 30 : 240)));
 
       // Barorreflejo
       // La clonidina central desplaza el punto de ajuste del barorreflejo hacia abajo
-      const setPoint = BASE.map * (1 - 0.22 * fx.Ea2c);
-      const e = (s.map - setPoint) / BASE.map;
-      const symT = clamp((1 - (e > 0 ? 0.7 : 2.2) * e) / (1 + 1.5 * fx.Ea2c), 0.03, 3.5);
-      const vagT = clamp((1 + (e > 0 ? 6.0 : 2.5) * e) * (1 + 0.8 * fx.Ea2c), 0, 4);
+      const B = this.sp.base;
+      const setPoint = B.map * (1 - 0.22 * fx.Ea2c);
+      const e = (s.map - setPoint) / B.map;
+      let symT = clamp((1 - (e > 0 ? 0.7 : 2.2) * e) / (1 + 1.5 * fx.Ea2c), 0.03, 3.5);
+      let vagT = clamp((1 + (e > 0 ? 6.0 : 2.5) * e) * (1 + 0.8 * fx.Ea2c), 0, 4);
+      // Animal descentralizado: sin control central no hay reflejo ni tono vagal
+      if (this.prep.pithed) { symT = this.prep.symTone; vagT = 0; }
       s.sym += (symT - s.sym) * (1 - Math.exp(-dt / 4.0));
       s.vag += (vagT - s.vag) * (1 - Math.exp(-dt / 1.0));
 
-      const h = hemo(s, fx);
-      s.hr += (h.hrTarget - s.hr) * (1 - Math.exp(-dt / 1.0));
+      const h = hemo(s, fx, this.sp);
+      // hrFactor: menor FC del animal descentralizado (sin impulso central ni tono simpático)
+      const hrT = this.prep.hrFactor ? h.hrTarget * this.prep.hrFactor : h.hrTarget;
+      s.hr += (hrT - s.hr) * (1 - Math.exp(-dt / 1.0));
       s.map += (h.mapTarget - s.map) * (1 - Math.exp(-dt / 1.5));
       s.t = Math.round((s.t + dt) * 1000) / 1000;
       this.record(fx, h);
@@ -332,9 +411,10 @@
     record(fx, h) {
       const s = this.s;
       fx = fx || computeEffects(s);
-      h = h || hemo(s, fx);
+      h = h || hemo(s, fx, this.sp);
       const sv = h.sv;
-      const pp = BASE.pp * (sv / BASE.sv) * Math.sqrt(Math.max(s.map, 10) / BASE.map);
+      const SB = this.sp.base;
+      const pp = SB.pp * (sv / SB.sv) * Math.sqrt(Math.max(s.map, 10) / SB.map);
       const r3 = v => Math.round(v * 1000) / 1000;
       const E = {}, B = {};
       for (const k in fx.E) E[k] = r3(fx.E[k]);
@@ -423,10 +503,12 @@
 
   /* Respuesta control: misma dosis en un sujeto sin fármacos previos */
   const controlCache = new Map();
-  function controlResponse(drugId, ug) {
-    const key = drugId + ':' + ug.toPrecision(6);
+  function controlResponse(drugId, ug, opts) {
+    opts = opts || {};
+    const sp = SPECIES[opts.species] || SPECIES.humano, prep = PREPS[opts.prep] || PREPS.normal;
+    const key = drugId + ':' + ug.toPrecision(6) + ':' + sp.id + ':' + prep.id;
     if (controlCache.has(key)) return controlCache.get(key);
-    const m = new Model();
+    const m = new Model({ species: sp.id, prep: prep.id });
     m.run(2);
     const t0 = m.s.t;
     m.inject(drugId, ug);
@@ -473,17 +555,19 @@
     const d = DRUG_BY_ID[evt.drugId];
     const B = evt.ctx.B;
     const map = resp.map, hr = resp.hr;
+    // Umbrales de la especie (en el humano, 4 mmHg y 4 lpm)
+    const sp = SPECIES[evt.species] || SPECIES.humano;
+    const tM = sp.thr.map, tH = sp.thr.hr, kH = tH / 4;
     const tags = [];
-    const big = v => Math.abs(v) >= 4;
-    if (map.up >= 4 && map.down <= -4) tags.push({ k: 'bi', label: 'Bifásica' });
-    else if (map.peak >= 4) tags.push({ k: 'up', label: 'Presora' });
-    else if (map.peak <= -4) tags.push({ k: 'down', label: 'Depresora' });
-    if (hr.peak >= 4) tags.push({ k: 'up', label: 'Taquicardia' });
-    else if (hr.peak <= -4) tags.push({ k: 'down', label: 'Bradicardia' });
+    if (map.up >= tM && map.down <= -tM) tags.push({ k: 'bi', label: 'Bifásica' });
+    else if (map.peak >= tM) tags.push({ k: 'up', label: 'Presora' });
+    else if (map.peak <= -tM) tags.push({ k: 'down', label: 'Depresora' });
+    if (hr.peak >= tH) tags.push({ k: 'up', label: 'Taquicardia' });
+    else if (hr.peak <= -tH) tags.push({ k: 'down', label: 'Bradicardia' });
     if (!tags.length) tags.push({ k: 'flat', label: 'Sin efecto relevante' });
 
     const others = modifierNames(evt);
-    const cmp = ctrl ? { map: compare(map.peak, ctrl.map.peak, 4), hr: compare(hr.peak, ctrl.hr.peak, 4) } : null;
+    const cmp = ctrl ? { map: compare(map.peak, ctrl.map.peak, tM), hr: compare(hr.peak, ctrl.hr.peak, tH) } : null;
     const notes = [];
     const changed = cmp && (!['similar', 'igual'].includes(cmp.map) || !['similar', 'igual'].includes(cmp.hr));
     const id = d.id;
@@ -497,11 +581,11 @@
         notes.push('El bloqueo β (' + join(modifierNames(evt, d => d.ant && (d.ant.b1 || d.ant.b2))) + ') impide la acción de ' + d.name.toLowerCase() + ' en sus receptores.');
       if (id === 'iso' && B.b1 > 0.6 && B.b2 < 0.3 && cmp.map !== 'abolida')
         notes.push('El bloqueo es cardioselectivo (β1): la vasodilatación β2 se conserva y la presión sigue bajando.');
-      if (ctrl && ctrl.map.peak >= 4 && ctrl.hr.peak <= -3 && B.m > 0.6 && hr.peak > ctrl.hr.peak + 3 && id !== 'ach')
+      if (ctrl && ctrl.map.peak >= tM && ctrl.hr.peak <= -3 * kH && B.m > 0.6 && hr.peak > ctrl.hr.peak + 3 * kH && id !== 'ach')
         notes.push('La bradicardia refleja es vagal (M2). Con atropina el reflejo no puede frenar el corazón y aparece el efecto cardíaco directo o una taquicardia.');
       if (B.n > 0.6 && ctrl && Math.abs(map.peak) > Math.abs(ctrl.map.peak) * 1.3 && id !== 'nic')
         notes.push('Con los ganglios bloqueados (' + join(modifierNames(evt, byAnt('n'))) + ') no funciona el barorreflejo: nada amortigua el cambio de presión.');
-      if (id === 'ach' && B.m > 0.6 && map.up >= 3)
+      if (id === 'ach' && B.m > 0.6 && map.up >= tM * 0.75)
         notes.push('Segundo experimento de Dale: con los receptores muscarínicos bloqueados, la acetilcolina a dosis alta estimula receptores nicotínicos de ganglios y médula suprarrenal y produce una respuesta presora.');
       else if ((id === 'ach' || id === 'neo') && B.m > 0.6)
         notes.push('La atropina bloquea los receptores muscarínicos M2 y M3: la acetilcolina ya no produce bradicardia ni vasodilatación.');
@@ -539,7 +623,7 @@
     const items = ev.map((e, i) => {
       const t1 = i + 1 < ev.length ? ev[i + 1].t : model.s.t;
       const resp = responseMetrics(pts, e.t, t1);
-      const ctrl = controlResponse(e.drugId, e.ug);
+      const ctrl = controlResponse(e.drugId, e.ug, { species: model.species, prep: model.prepId });
       return { evt: e, resp, ctrl, info: interpretEvent(e, resp, ctrl) };
     });
     let maxMap = -Infinity, minMap = Infinity, maxHr = -Infinity, minHr = Infinity;
@@ -560,8 +644,9 @@
 
     const conclusions = [];
     if (!items.length) return { items, findings, conclusions, stats: null, blocks, extras };
-    const pressors = items.filter(x => x.resp.map.peak >= 4).map(x => DRUG_BY_ID[x.evt.drugId].name);
-    const depress = items.filter(x => x.resp.map.peak <= -4).map(x => DRUG_BY_ID[x.evt.drugId].name);
+    const tM = (SPECIES[model.species] || SPECIES.humano).thr.map;
+    const pressors = items.filter(x => x.resp.map.peak >= tM).map(x => DRUG_BY_ID[x.evt.drugId].name);
+    const depress = items.filter(x => x.resp.map.peak <= -tM).map(x => DRUG_BY_ID[x.evt.drugId].name);
     const uniq = a => [...new Set(a)];
     if (pressors.length) conclusions.push('Respuestas presoras: ' + join(uniq(pressors)) + '.');
     if (depress.length) conclusions.push('Respuestas depresoras: ' + join(uniq(depress)) + '.');
@@ -595,7 +680,7 @@
     };
   }
 
-  const api = { DT, BASE, DRUGS, DRUG_BY_ID, CATEGORIES, REC_LABEL, Model, toMicrograms, responseMetrics, controlResponse, computeEffects, interpretEvent, interpretSession, CMP_LABEL };
+  const api = { DT, BASE, SPECIES, PREPS, DRUGS, DRUG_BY_ID, CATEGORIES, REC_LABEL, Model, toMicrograms, responseMetrics, controlResponse, computeEffects, interpretEvent, interpretSession, CMP_LABEL };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CardioEngine = api;
 })(typeof window !== 'undefined' ? window : globalThis);

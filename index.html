@@ -325,6 +325,23 @@ main {
 .btn-secondary.danger { color: var(--rose-text); }
 .hint { font-size: 12.5px; color: var(--muted); margin: 10px 2px 0; }
 
+.animal-row { display: flex; align-items: center; gap: 10px; padding: 0 0 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+.animal-row svg { flex: none; }
+.animal-info { display: grid; min-width: 0; flex: 1; }
+.animal-name { font-weight: 700; font-size: 14.5px; }
+.animal-prep { font-size: 12.5px; color: var(--muted); }
+.btn-secondary.small { min-height: 34px; padding: 0 12px; font-size: 13.5px; }
+.animal-dlg { width: min(92vw, 440px); }
+.dlg-label { font-size: 13px; font-weight: 700; color: var(--ink-2); margin: 14px 0 6px; }
+.choice { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; }
+.choice button { display: grid; gap: 1px; text-align: left; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 12px; padding: 9px 11px; font-size: 14px; }
+.choice button span { font-size: 12px; color: var(--muted); }
+.choice button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.dlg-desc { font-size: 13.5px; color: var(--ink-2); margin: 10px 0 0 !important; }
+.dlg-warn { font-size: 13.5px; color: var(--rose-text); margin: 10px 0 0 !important; }
+.animal-dlg .actions { margin-top: 18px; }
+.btn-primary.inline { width: auto; margin-top: 0; min-height: 42px; padding: 0 16px; font-size: 14.5px; border-radius: 12px; }
+
 /* ---------- Fisiología ---------- */
 .replay { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; }
 .replay-title { font-weight: 700; font-size: 15px; }
@@ -627,7 +644,7 @@ dialog .actions { justify-content: flex-end; }
       <hr>
       <button role="menuitem" data-act="reset" class="danger">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4h4"/></svg>
-        Reiniciar sesión
+        Terminar experimento
       </button>
     </div>
   </div>
@@ -754,7 +771,7 @@ dialog .actions { justify-content: flex-end; }
             </figure>
           </div>
           <div class="derived">
-            <div><span>Gasto cardíaco</span><b><span id="fCo">5,0</span> <small>L/min</small></b></div>
+            <div><span>Gasto cardíaco</span><b><span id="fCo">5,0</span> <small id="fCoU">L/min</small></b></div>
             <div><span>Vol. sistólico</span><b><span id="fSv">70</span> <small>mL</small></b></div>
             <div><span>PAM</span><b><span id="fMap">93</span> <small>mmHg</small></b></div>
             <div><span>Presión de pulso</span><b><span id="fPp">40</span> <small>mmHg</small></b></div>
@@ -823,6 +840,11 @@ dialog .actions { justify-content: flex-end; }
 <template id="adminTpl">
   <section class="card admin" id="admin" aria-labelledby="adminTitle">
     <h2 class="card-title" id="adminTitle">Administrar</h2>
+    <div class="animal-row">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="10" fill="var(--accent-soft)"/><path d="M8 21c0-5 4-8 9-8 2.2 0 4 .7 5.4 1.9L26 13l-.6 4.3c.4.9.6 2 .6 3.1 0 1.2-1 1.6-2.6 1.6H11.5" fill="none" stroke="var(--accent-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="22.5" cy="17.5" r="1" fill="var(--accent-text)"/><path d="M8 21c-2 0-3 1.2-3 3" fill="none" stroke="var(--accent-text)" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="animal-info"><span class="animal-name" id="animalName"></span><span class="animal-prep" id="animalPrep"></span></div>
+      <button type="button" class="btn-secondary small" id="animalBtn" aria-haspopup="dialog">Cambiar</button>
+    </div>
     <button type="button" class="drug-pick" id="drugPick" aria-haspopup="dialog">
       <span class="dp-cat" id="dpCat"></span>
       <span class="dp-name" id="dpName"></span>
@@ -874,11 +896,25 @@ dialog .actions { justify-content: flex-end; }
 </div>
 
 <dialog id="resetDlg" aria-labelledby="resetTitle">
-  <h2 id="resetTitle">¿Reiniciar la sesión?</h2>
-  <p>Se borran el registro y el historial de administraciones. Si quieres conservarlos, exporta antes el CSV.</p>
+  <h2 id="resetTitle">¿Terminar el experimento?</h2>
+  <p>Empiezas con un animal nuevo, del mismo tipo y sin pretratamiento. Se borran el registro y el historial; si quieres conservarlos, exporta antes el CSV.</p>
   <div class="actions">
     <button type="button" class="btn-secondary" value="cancel" id="resetCancel">Cancelar</button>
-    <button type="button" class="btn-danger" id="resetOk">Reiniciar</button>
+    <button type="button" class="btn-danger" id="resetOk">Terminar experimento</button>
+  </div>
+</dialog>
+
+<dialog id="animalDlg" aria-labelledby="animalTitle" class="animal-dlg">
+  <h2 id="animalTitle">Elegir animal</h2>
+  <div class="dlg-label">Especie</div>
+  <div class="choice" id="dlgSpecies" role="group" aria-label="Especie"></div>
+  <div class="dlg-label">Preparación</div>
+  <div class="choice" id="dlgPrep" role="group" aria-label="Preparación"></div>
+  <p class="dlg-desc" id="dlgPrepDesc"></p>
+  <p class="dlg-warn" id="dlgWarn" hidden>Se termina el experimento actual: se borran el registro y el historial.</p>
+  <div class="actions">
+    <button type="button" class="btn-secondary" id="animalCancel">Cancelar</button>
+    <button type="button" class="btn-primary inline" id="animalOk">Empezar con este animal</button>
   </div>
 </dialog>
 
@@ -896,6 +932,34 @@ dialog .actions { justify-content: flex-end; }
 
   const DT = 0.1;
   const BASE = { map: 93.3, hr: 72, sv: 70, pp: 40 };
+
+  /* Especies. El modelo farmacodinámico es relativo (fracción de ocupación y cambios
+     respecto al basal), así que cada especie aporta sus valores basales, la escala de
+     potencia y cómo se traduce el estímulo cronotrópico en lpm.
+     · scale: µg equivalentes del modelo por µg reales en el animal. En la rata,
+       1 µg/kg equivale a 10 µg del modelo (rata de 300 g → 10 / 0,3).
+     · hrExp: compresión de la respuesta de FC (la rata parte de una FC alta y su
+       margen relativo es menor).
+     · thr: umbral de cambio relevante para la interpretación (mmHg y lpm). */
+  const SPECIES = {
+    humano: {
+      id: 'humano', name: 'Humano', detail: 'adulto de 70 kg', weight: 70,
+      base: BASE, hrMin: 20, hrMax: 280, hrExp: 1, scale: 1, thr: { map: 4, hr: 4 }
+    },
+    rata: {
+      id: 'rata', name: 'Rata', detail: 'anestesiada, 300 g', weight: 0.3,
+      base: { map: 100, hr: 380, sv: 0.3, pp: 35 }, hrMin: 180, hrMax: 600, hrExp: 0.5, scale: 10 / 0.3, thr: { map: 4, hr: 12 }
+    }
+  };
+
+  /* Preparaciones del animal */
+  const PREPS = {
+    normal: { id: 'normal', name: 'Normal', desc: 'Animal anestesiado con reflejos y tono autónomo intactos.' },
+    reserpinizado: { id: 'reserpinizado', name: 'Reserpinizado', store: 0.05,
+      desc: 'Pretratado con reserpina: los depósitos de noradrenalina están casi vacíos (5 %).' },
+    descentralizado: { id: 'descentralizado', name: 'Descentralizado', pithed: true, symTone: 0.08, hrFactor: 0.72,
+      desc: 'Sin control del sistema nervioso central (desmedulado): no hay barorreflejo ni tono vagal y queda un tono simpático residual mínimo.' }
+  };
 
   const CATEGORIES = [
     { id: 'ady', name: 'Agonistas adrenérgicos' },
@@ -947,6 +1011,9 @@ dialog .actions { justify-content: flex-end; }
     { id: 'met', name: 'Metoprolol', cat: 'bla', mech: 'Antagonista β1 selectivo', unit: 'mg', dose: 5, t12: 900, onset: 6,
       ant: { b1: 40, b2: 1500 },
       desc: 'Bloqueo β1 cardioselectivo. Baja la FC pero conserva la vasodilatación β2.' },
+    { id: 'ate', name: 'Atenolol', cat: 'bla', mech: 'Antagonista β1 selectivo', unit: 'mg', dose: 5, t12: 1200, onset: 6,
+      ant: { b1: 60, b2: 30000 },
+      desc: 'Bloqueo β1 cardioselectivo e hidrófilo. Baja la FC y anula la taquicardia β1, pero respeta la vasodilatación β2.' },
     { id: 'lab', name: 'Labetalol', cat: 'bla', mech: 'Antagonista α1, β1, β2', unit: 'mg', dose: 20, t12: 900, onset: 6,
       ant: { a1: 1500, b1: 300, b2: 600 },
       desc: 'Bloqueo mixto α1 y β. Baja la presión sin taquicardia refleja.' },
@@ -1013,6 +1080,17 @@ dialog .actions { justify-content: flex-end; }
 
   const DRUG_BY_ID = {};
   DRUGS.forEach(d => { DRUG_BY_ID[d.id] = d; });
+
+  // Dosis habituales en la rata (por kg). Las de la Práctica 7 siguen la guía.
+  const RAT_DOSES = {
+    adr: [1, 'µg/kg'], nor: [1, 'µg/kg'], iso: [3, 'µg/kg'], phe: [100, 'µg/kg'], dop: [20, 'µg/kg'], dob: [25, 'µg/kg'],
+    sal: [10, 'µg/kg'], clo: [15, 'µg/kg'], phn: [200, 'µg/kg'], prz: [1000, 'µg/kg'], pro: [1000, 'µg/kg'], met: [500, 'µg/kg'],
+    ate: [1000, 'µg/kg'], lab: [2, 'mg/kg'], ach: [1, 'µg/kg'], neo: [50, 'µg/kg'], atr: [100, 'µg/kg'], tyr: [50, 'µg/kg'],
+    eph: [1, 'mg/kg'], coc: [200, 'µg/kg'], res: [100, 'µg/kg'], nic: [10, 'µg/kg'], hex: [1, 'mg/kg'], his: [1, 'µg/kg'],
+    dph: [2, 'mg/kg'], ang: [0.1, 'µg/kg'], los: [1, 'mg/kg'], avp: [0.2, 'µg/kg'], snp: [5, 'µg/kg'], ntg: [20, 'µg/kg'],
+    ver: [0.5, 'mg/kg']
+  };
+  DRUGS.forEach(d => { const r = RAT_DOSES[d.id]; d.ratDose = r ? { dose: r[0], unit: r[1] } : { dose: d.dose, unit: d.unit + '/kg' }; });
 
   const REC = ['a1', 'a2', 'b1', 'b2', 'm', 'n', 'h1', 'd1', 'v1', 'at1', 'no', 'ven', 'net', 'a2c'];
   const REC_LABEL = {
@@ -1122,29 +1200,57 @@ dialog .actions { justify-content: flex-end; }
     };
   }
 
-  function freshState() {
-    return { t: 0, c: {}, ce: {}, cns: {}, sym: 1, vag: 1, store: 1, map: BASE.map, hr: BASE.hr };
+  function freshState(sp) {
+    const B = (sp || SPECIES.humano).base;
+    return { t: 0, c: {}, ce: {}, cns: {}, sym: 1, vag: 1, store: 1, map: B.map, hr: B.hr };
   }
 
   const REF = computeEffects(freshState());
-  const CO0 = BASE.hr * BASE.sv;
 
-  function hemo(s, fx) {
-    const hrTarget = clamp(BASE.hr * fx.hrf / REF.hrf, 20, 280);
-    const fill = clamp(1 - (s.hr > BASE.hr ? 0.0075 : 0.004) * (s.hr - BASE.hr), 0.5, 1.2);
-    const sv = BASE.sv * (fx.contr / REF.contr) * (fx.preload / REF.preload) * fill;
+  function hemo(s, fx, sp) {
+    sp = sp || SPECIES.humano;
+    const B = sp.base;
+    let hrTarget, dHr, hrRel;
+    if (sp.hrExp === 1) {
+      hrTarget = clamp(B.hr * fx.hrf / REF.hrf, sp.hrMin, sp.hrMax);
+      dHr = s.hr - B.hr;
+    } else {
+      // La FC de la especie se traduce a su equivalente en el modelo de referencia
+      hrTarget = clamp(B.hr * Math.pow(fx.hrf / REF.hrf, sp.hrExp), sp.hrMin, sp.hrMax);
+      hrRel = Math.pow(s.hr / B.hr, 1 / sp.hrExp);
+      dHr = (hrRel - 1) * BASE.hr;
+    }
+    const fill = clamp(1 - (dHr > 0 ? 0.0075 : 0.004) * dHr, 0.5, 1.2);
+    const sv = B.sv * (fx.contr / REF.contr) * (fx.preload / REF.preload) * fill;
     const co = s.hr * sv;
     const svr = fx.svrf / REF.svrf;
-    const mapTarget = clamp(BASE.map * (co / CO0) * svr, 15, 260);
+    const coRel = sp.hrExp === 1 ? co / (B.hr * B.sv) : hrRel * sv / B.sv;
+    const mapTarget = clamp(B.map * coRel * svr, 15, 260);
     return { hrTarget, sv, co, svr, mapTarget };
   }
 
   class Model {
-    constructor() {
-      this.s = freshState();
+    constructor(opts) {
+      opts = opts || {};
+      this.sp = SPECIES[opts.species] || SPECIES.humano;
+      this.prep = PREPS[opts.prep] || PREPS.normal;
+      this.species = this.sp.id;
+      this.prepId = this.prep.id;
+      this.s = freshState(this.sp);
+      if (this.prep.pithed) { this.s.sym = this.prep.symTone; this.s.vag = 0; }
       this.points = [];
       this.events = [];
       this.record();
+      // Una preparación distinta de la normal se deja estabilizar antes de empezar el registro
+      if (this.prep !== PREPS.normal) this.equilibrate(this.prep.store !== undefined ? 400 : 90);
+    }
+
+    equilibrate(seconds) {
+      this.run(seconds);
+      const last = this.points[this.points.length - 1];
+      this.s.t = 0;
+      last.t = 0;
+      this.points = [last];
     }
 
     activeDrugs(threshold) {
@@ -1164,7 +1270,8 @@ dialog .actions { justify-content: flex-end; }
       const s = this.s;
       const fx = computeEffects(s);
       const pre = this.points[this.points.length - 1];
-      s.c[drugId] = (s.c[drugId] || 0) + micrograms;
+      // Cantidad en µg equivalentes del modelo (en el humano, la misma)
+      s.c[drugId] = (s.c[drugId] || 0) + micrograms * this.sp.scale;
       if (s.ce[drugId] === undefined) s.ce[drugId] = 0;
       if (d.cns && s.cns[drugId] === undefined) s.cns[drugId] = 0;
       const evt = Object.assign({
@@ -1172,6 +1279,8 @@ dialog .actions { justify-content: flex-end; }
         t: s.t,
         drugId,
         ug: micrograms,
+        species: this.sp.id,
+        prep: this.prep.id,
         pre: { sys: pre.sys, dia: pre.dia, map: pre.map, hr: pre.hr },
         ctx: { B: Object.assign({}, fx.B), modifiers: this.activeDrugs(0.3).filter(a => a.id !== drugId || true) }
       }, meta || {});
@@ -1197,20 +1306,26 @@ dialog .actions { justify-content: flex-end; }
       }
       const fx = computeEffects(s);
       // Depósitos de noradrenalina (reserpina)
-      const storeTarget = 1 - 0.95 * fx.Eres;
+      let storeTarget = 1 - 0.95 * fx.Eres;
+      if (this.prep.store !== undefined) storeTarget = Math.min(storeTarget, this.prep.store);
       s.store += (storeTarget - s.store) * (1 - Math.exp(-dt / (storeTarget < s.store ? 30 : 240)));
 
       // Barorreflejo
       // La clonidina central desplaza el punto de ajuste del barorreflejo hacia abajo
-      const setPoint = BASE.map * (1 - 0.22 * fx.Ea2c);
-      const e = (s.map - setPoint) / BASE.map;
-      const symT = clamp((1 - (e > 0 ? 0.7 : 2.2) * e) / (1 + 1.5 * fx.Ea2c), 0.03, 3.5);
-      const vagT = clamp((1 + (e > 0 ? 6.0 : 2.5) * e) * (1 + 0.8 * fx.Ea2c), 0, 4);
+      const B = this.sp.base;
+      const setPoint = B.map * (1 - 0.22 * fx.Ea2c);
+      const e = (s.map - setPoint) / B.map;
+      let symT = clamp((1 - (e > 0 ? 0.7 : 2.2) * e) / (1 + 1.5 * fx.Ea2c), 0.03, 3.5);
+      let vagT = clamp((1 + (e > 0 ? 6.0 : 2.5) * e) * (1 + 0.8 * fx.Ea2c), 0, 4);
+      // Animal descentralizado: sin control central no hay reflejo ni tono vagal
+      if (this.prep.pithed) { symT = this.prep.symTone; vagT = 0; }
       s.sym += (symT - s.sym) * (1 - Math.exp(-dt / 4.0));
       s.vag += (vagT - s.vag) * (1 - Math.exp(-dt / 1.0));
 
-      const h = hemo(s, fx);
-      s.hr += (h.hrTarget - s.hr) * (1 - Math.exp(-dt / 1.0));
+      const h = hemo(s, fx, this.sp);
+      // hrFactor: menor FC del animal descentralizado (sin impulso central ni tono simpático)
+      const hrT = this.prep.hrFactor ? h.hrTarget * this.prep.hrFactor : h.hrTarget;
+      s.hr += (hrT - s.hr) * (1 - Math.exp(-dt / 1.0));
       s.map += (h.mapTarget - s.map) * (1 - Math.exp(-dt / 1.5));
       s.t = Math.round((s.t + dt) * 1000) / 1000;
       this.record(fx, h);
@@ -1219,9 +1334,10 @@ dialog .actions { justify-content: flex-end; }
     record(fx, h) {
       const s = this.s;
       fx = fx || computeEffects(s);
-      h = h || hemo(s, fx);
+      h = h || hemo(s, fx, this.sp);
       const sv = h.sv;
-      const pp = BASE.pp * (sv / BASE.sv) * Math.sqrt(Math.max(s.map, 10) / BASE.map);
+      const SB = this.sp.base;
+      const pp = SB.pp * (sv / SB.sv) * Math.sqrt(Math.max(s.map, 10) / SB.map);
       const r3 = v => Math.round(v * 1000) / 1000;
       const E = {}, B = {};
       for (const k in fx.E) E[k] = r3(fx.E[k]);
@@ -1310,10 +1426,12 @@ dialog .actions { justify-content: flex-end; }
 
   /* Respuesta control: misma dosis en un sujeto sin fármacos previos */
   const controlCache = new Map();
-  function controlResponse(drugId, ug) {
-    const key = drugId + ':' + ug.toPrecision(6);
+  function controlResponse(drugId, ug, opts) {
+    opts = opts || {};
+    const sp = SPECIES[opts.species] || SPECIES.humano, prep = PREPS[opts.prep] || PREPS.normal;
+    const key = drugId + ':' + ug.toPrecision(6) + ':' + sp.id + ':' + prep.id;
     if (controlCache.has(key)) return controlCache.get(key);
-    const m = new Model();
+    const m = new Model({ species: sp.id, prep: prep.id });
     m.run(2);
     const t0 = m.s.t;
     m.inject(drugId, ug);
@@ -1360,17 +1478,19 @@ dialog .actions { justify-content: flex-end; }
     const d = DRUG_BY_ID[evt.drugId];
     const B = evt.ctx.B;
     const map = resp.map, hr = resp.hr;
+    // Umbrales de la especie (en el humano, 4 mmHg y 4 lpm)
+    const sp = SPECIES[evt.species] || SPECIES.humano;
+    const tM = sp.thr.map, tH = sp.thr.hr, kH = tH / 4;
     const tags = [];
-    const big = v => Math.abs(v) >= 4;
-    if (map.up >= 4 && map.down <= -4) tags.push({ k: 'bi', label: 'Bifásica' });
-    else if (map.peak >= 4) tags.push({ k: 'up', label: 'Presora' });
-    else if (map.peak <= -4) tags.push({ k: 'down', label: 'Depresora' });
-    if (hr.peak >= 4) tags.push({ k: 'up', label: 'Taquicardia' });
-    else if (hr.peak <= -4) tags.push({ k: 'down', label: 'Bradicardia' });
+    if (map.up >= tM && map.down <= -tM) tags.push({ k: 'bi', label: 'Bifásica' });
+    else if (map.peak >= tM) tags.push({ k: 'up', label: 'Presora' });
+    else if (map.peak <= -tM) tags.push({ k: 'down', label: 'Depresora' });
+    if (hr.peak >= tH) tags.push({ k: 'up', label: 'Taquicardia' });
+    else if (hr.peak <= -tH) tags.push({ k: 'down', label: 'Bradicardia' });
     if (!tags.length) tags.push({ k: 'flat', label: 'Sin efecto relevante' });
 
     const others = modifierNames(evt);
-    const cmp = ctrl ? { map: compare(map.peak, ctrl.map.peak, 4), hr: compare(hr.peak, ctrl.hr.peak, 4) } : null;
+    const cmp = ctrl ? { map: compare(map.peak, ctrl.map.peak, tM), hr: compare(hr.peak, ctrl.hr.peak, tH) } : null;
     const notes = [];
     const changed = cmp && (!['similar', 'igual'].includes(cmp.map) || !['similar', 'igual'].includes(cmp.hr));
     const id = d.id;
@@ -1384,11 +1504,11 @@ dialog .actions { justify-content: flex-end; }
         notes.push('El bloqueo β (' + join(modifierNames(evt, d => d.ant && (d.ant.b1 || d.ant.b2))) + ') impide la acción de ' + d.name.toLowerCase() + ' en sus receptores.');
       if (id === 'iso' && B.b1 > 0.6 && B.b2 < 0.3 && cmp.map !== 'abolida')
         notes.push('El bloqueo es cardioselectivo (β1): la vasodilatación β2 se conserva y la presión sigue bajando.');
-      if (ctrl && ctrl.map.peak >= 4 && ctrl.hr.peak <= -3 && B.m > 0.6 && hr.peak > ctrl.hr.peak + 3 && id !== 'ach')
+      if (ctrl && ctrl.map.peak >= tM && ctrl.hr.peak <= -3 * kH && B.m > 0.6 && hr.peak > ctrl.hr.peak + 3 * kH && id !== 'ach')
         notes.push('La bradicardia refleja es vagal (M2). Con atropina el reflejo no puede frenar el corazón y aparece el efecto cardíaco directo o una taquicardia.');
       if (B.n > 0.6 && ctrl && Math.abs(map.peak) > Math.abs(ctrl.map.peak) * 1.3 && id !== 'nic')
         notes.push('Con los ganglios bloqueados (' + join(modifierNames(evt, byAnt('n'))) + ') no funciona el barorreflejo: nada amortigua el cambio de presión.');
-      if (id === 'ach' && B.m > 0.6 && map.up >= 3)
+      if (id === 'ach' && B.m > 0.6 && map.up >= tM * 0.75)
         notes.push('Segundo experimento de Dale: con los receptores muscarínicos bloqueados, la acetilcolina a dosis alta estimula receptores nicotínicos de ganglios y médula suprarrenal y produce una respuesta presora.');
       else if ((id === 'ach' || id === 'neo') && B.m > 0.6)
         notes.push('La atropina bloquea los receptores muscarínicos M2 y M3: la acetilcolina ya no produce bradicardia ni vasodilatación.');
@@ -1426,7 +1546,7 @@ dialog .actions { justify-content: flex-end; }
     const items = ev.map((e, i) => {
       const t1 = i + 1 < ev.length ? ev[i + 1].t : model.s.t;
       const resp = responseMetrics(pts, e.t, t1);
-      const ctrl = controlResponse(e.drugId, e.ug);
+      const ctrl = controlResponse(e.drugId, e.ug, { species: model.species, prep: model.prepId });
       return { evt: e, resp, ctrl, info: interpretEvent(e, resp, ctrl) };
     });
     let maxMap = -Infinity, minMap = Infinity, maxHr = -Infinity, minHr = Infinity;
@@ -1447,8 +1567,9 @@ dialog .actions { justify-content: flex-end; }
 
     const conclusions = [];
     if (!items.length) return { items, findings, conclusions, stats: null, blocks, extras };
-    const pressors = items.filter(x => x.resp.map.peak >= 4).map(x => DRUG_BY_ID[x.evt.drugId].name);
-    const depress = items.filter(x => x.resp.map.peak <= -4).map(x => DRUG_BY_ID[x.evt.drugId].name);
+    const tM = (SPECIES[model.species] || SPECIES.humano).thr.map;
+    const pressors = items.filter(x => x.resp.map.peak >= tM).map(x => DRUG_BY_ID[x.evt.drugId].name);
+    const depress = items.filter(x => x.resp.map.peak <= -tM).map(x => DRUG_BY_ID[x.evt.drugId].name);
     const uniq = a => [...new Set(a)];
     if (pressors.length) conclusions.push('Respuestas presoras: ' + join(uniq(pressors)) + '.');
     if (depress.length) conclusions.push('Respuestas depresoras: ' + join(uniq(depress)) + '.');
@@ -1482,7 +1603,7 @@ dialog .actions { justify-content: flex-end; }
     };
   }
 
-  const api = { DT, BASE, DRUGS, DRUG_BY_ID, CATEGORIES, REC_LABEL, Model, toMicrograms, responseMetrics, controlResponse, computeEffects, interpretEvent, interpretSession, CMP_LABEL };
+  const api = { DT, BASE, SPECIES, PREPS, DRUGS, DRUG_BY_ID, CATEGORIES, REC_LABEL, Model, toMicrograms, responseMetrics, controlResponse, computeEffects, interpretEvent, interpretSession, CMP_LABEL };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CardioEngine = api;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1541,6 +1662,8 @@ dialog .actions { justify-content: flex-end; }
     drugId: DRUG_BY_ID[LS.get('drug', 'adr')] ? LS.get('drug', 'adr') : 'adr',
     unit: 'µg',
     weight: LS.get('weight', 70),
+    species: CE.SPECIES[LS.get('species', 'rata')] ? LS.get('species', 'rata') : 'rata',
+    prep: CE.PREPS[LS.get('prep', 'normal')] ? LS.get('prep', 'normal') : 'normal',
     tab: 'registro',
     view: { span: Infinity, follow: true, x0: 0 },
     cursorT: null,
@@ -1552,7 +1675,7 @@ dialog .actions { justify-content: flex-end; }
   let model = null;
   let session = null, sessionDirty = true, lastSessionAt = 0;
 
-  function freshModel() { const m = new CE.Model(); m.run(5); return m; }
+  function freshModel() { const m = new CE.Model({ species: state.species, prep: state.prep }); m.run(5); return m; }
 
   /* ---------- Colores del tema ---------- */
   const C = {};
@@ -1598,48 +1721,72 @@ dialog .actions { justify-content: flex-end; }
     $('#dpDesc', adminEl).textContent = d.desc;
   }
 
+  // Especie del animal actual y dosis habitual de cada fármaco en esa especie
+  const SP = () => CE.SPECIES[model ? model.species : state.species] || CE.SPECIES.rata;
+  const isRat = () => SP().id === 'rata';
+  const defaultDose = d => isRat() ? d.ratDose : { dose: d.dose, unit: d.unit };
+  const UNITS = { rata: ['µg/kg', 'mg/kg', 'µg', 'mg'], humano: ['µg', 'mg', 'µg/kg', 'mg/kg'] };
+
+  function renderUnitOptions() {
+    const keep = unitSel.value;
+    unitSel.innerHTML = UNITS[SP().id].map(u => '<option value="' + u + '">' + u + '</option>').join('');
+    if (UNITS[SP().id].indexOf(keep) >= 0) unitSel.value = keep;
+  }
+
   function selectDrug(id) {
     const d = DRUG_BY_ID[id];
+    const def = defaultDose(d);
     state.drugId = id;
-    state.unit = d.unit;
-    unitSel.value = d.unit;
-    doseIn.value = trimNum(d.dose);
+    state.unit = def.unit;
+    unitSel.value = def.unit;
+    doseIn.value = trimNum(def.dose);
     LS.set('drug', id);
     renderDrugPick();
     updateDose();
   }
 
   function currentDose() {
+    const sp = SP(), rat = sp.id === 'rata';
     const dose = parseNum(doseIn.value);
     const unit = unitSel.value;
-    const weight = parseNum(weightIn.value);
+    // En la rata el peso es fijo (300 g); en el humano se escribe
+    const weight = rat ? sp.weight : parseNum(weightIn.value);
     const perKg = unit.indexOf('/kg') > 0;
     let err = '';
     if (!(dose > 0)) err = 'Escribe una dosis mayor que 0.';
-    else if (perKg && !(weight > 0 && weight <= 400)) err = 'Escribe un peso entre 1 y 400 kg.';
+    else if (perKg && !rat && !(weight > 0 && weight <= 400)) err = 'Escribe un peso entre 1 y 400 kg.';
     const ug = err ? NaN : CE.toMicrograms(dose, unit, weight);
     if (!err && !(ug > 0)) err = 'La dosis no es válida.';
-    return { dose, unit, weight, perKg, ug, err };
+    return { dose, unit, weight, perKg, rat, ug, err };
+  }
+
+  function perKgLabel(ugPerKg) {
+    return ugPerKg >= 1000 ? trimNum(ugPerKg / 1000, 3) + ' mg/kg' : trimNum(ugPerKg, 3) + ' µg/kg';
   }
 
   function doseLabel(c) {
     let s = trimNum(c.dose) + ' ' + c.unit;
-    if (c.perKg) s += ' (' + fmtUg(c.ug) + ' para ' + trimNum(c.weight, 1) + ' kg)';
+    if (c.rat) { if (!c.perKg) s += ' (' + perKgLabel(c.ug / c.weight) + ')'; }
+    else if (c.perKg) s += ' (' + fmtUg(c.ug) + ' para ' + trimNum(c.weight, 1) + ' kg)';
     return s;
   }
 
   function updateDose() {
     state.unit = unitSel.value;
     const c = currentDose();
-    $('#weightField', adminEl).hidden = !c.perKg;
-    $('#doseGrid', adminEl).classList.toggle('with-weight', c.perKg);
+    const showWeight = c.perKg && !c.rat;
+    $('#weightField', adminEl).hidden = !showWeight;
+    $('#doseGrid', adminEl).classList.toggle('with-weight', showWeight);
     const eq = $('#doseEq', adminEl);
     if (c.err) eq.textContent = '';
     else {
       const d = DRUG_BY_ID[state.drugId];
-      const ratio = c.ug / CE.toMicrograms(d.dose, d.unit, 70);
-      let t = c.perKg || c.unit === 'mg' ? 'Equivale a ' + fmtUg(c.ug) + '. ' : '';
-      t += Math.abs(ratio - 1) < 0.005 ? 'Dosis habitual.' : nf(ratio, ratio < 1 ? 2 : 1) + ' veces la dosis habitual.';
+      const def = defaultDose(d);
+      const ratio = c.ug / CE.toMicrograms(def.dose, def.unit, c.weight);
+      let t = '';
+      if (c.rat) t = c.perKg ? 'Son ' + fmtUg(c.ug) + ' en una rata de 300 g. ' : 'Equivale a ' + perKgLabel(c.ug / c.weight) + '. ';
+      else if (c.perKg || c.unit === 'mg') t = 'Equivale a ' + fmtUg(c.ug) + '. ';
+      t += Math.abs(ratio - 1) < 0.005 ? 'Dosis habitual.' : trimNum(ratio, ratio < 1 ? 2 : 1) + ' veces la dosis habitual.';
       eq.textContent = t;
     }
     doseIn.removeAttribute('aria-invalid');
@@ -1648,9 +1795,10 @@ dialog .actions { justify-content: flex-end; }
 
   function scaleDose(mul) {
     const d = DRUG_BY_ID[state.drugId];
-    if (mul === 'reset') { unitSel.value = d.unit; doseIn.value = trimNum(d.dose); updateDose(); return; }
+    const def = defaultDose(d);
+    if (mul === 'reset') { unitSel.value = def.unit; doseIn.value = trimNum(def.dose); updateDose(); return; }
     const v = parseNum(doseIn.value);
-    const base = v > 0 ? v : d.dose;
+    const base = v > 0 ? v : def.dose;
     doseIn.value = trimNum(base * parseFloat(mul), 4);
     updateDose();
   }
@@ -1663,10 +1811,10 @@ dialog .actions { justify-content: flex-end; }
       (c.err.indexOf('peso') >= 0 ? weightIn : doseIn).setAttribute('aria-invalid', 'true');
       return;
     }
-    if (c.perKg) { state.weight = c.weight; LS.set('weight', c.weight); }
+    if (c.perKg && !c.rat) { state.weight = c.weight; LS.set('weight', c.weight); }
     const d = DRUG_BY_ID[state.drugId];
     const label = doseLabel(c);
-    const evt = model.inject(d.id, c.ug, { doseLabel: label, dose: c.dose, unit: c.unit, weight: c.perKg ? c.weight : null, mode: state.mode });
+    const evt = model.inject(d.id, c.ug, { doseLabel: label, dose: c.dose, unit: c.unit, weight: c.perKg && !c.rat ? c.weight : null, mode: state.mode });
     if (!evt) { toast('No se pudo administrar.'); return; }
     if (state.mode === 'imm') {
       const btn = $('#giveBtn', adminEl);
@@ -1687,9 +1835,50 @@ dialog .actions { justify-content: flex-end; }
   }
 
   function renderModeHint() {
-    $('#modeHint', adminEl).textContent = state.mode === 'imm'
+    $('#modeHint', adminEl).textContent = (state.mode === 'imm'
       ? 'Modo inmediato: la simulación avanza hasta que la respuesta se estabiliza (entre 20 y 150 s).'
-      : 'Modo en vivo: el fármaco actúa en tiempo real a la velocidad elegida. Puedes encadenar dosis sin esperar.';
+      : 'Modo en vivo: el fármaco actúa en tiempo real a la velocidad elegida. Puedes encadenar dosis sin esperar.') +
+      (isRat() ? ' Las dosis van por kg de peso, como en la guía.' : '');
+  }
+
+  function animalText() {
+    const sp = SP(), prep = CE.PREPS[model ? model.prepId : state.prep];
+    const PREP_LABEL = { normal: 'Sin pretratamiento', reserpinizado: 'Animal reserpinizado', descentralizado: 'Animal descentralizado' };
+    return { name: sp.name + ' ' + sp.detail, prep: PREP_LABEL[prep.id] || prep.name };
+  }
+  function renderAnimal() {
+    const a = animalText();
+    $('#animalName', adminEl).textContent = a.name;
+    $('#animalPrep', adminEl).textContent = a.prep;
+    renderUnitOptions();
+  }
+
+  // Diálogo para cambiar de animal (equivale a «terminar el experimento» de la guía)
+  const animalDlg = $('#animalDlg');
+  let dlgSpecies = state.species, dlgPrep = state.prep;
+  function renderAnimalDlg() {
+    $('#dlgSpecies').innerHTML = Object.values(CE.SPECIES).map(sp =>
+      '<button type="button" data-sp="' + sp.id + '" aria-pressed="' + (sp.id === dlgSpecies) + '"><b>' + esc(sp.name) + '</b><span>' + esc(sp.detail) + '</span></button>').join('');
+    $('#dlgPrep').innerHTML = Object.values(CE.PREPS).map(pr =>
+      '<button type="button" data-prep="' + pr.id + '" aria-pressed="' + (pr.id === dlgPrep) + '"><b>' + esc(pr.name) + '</b></button>').join('');
+    $('#dlgPrepDesc').textContent = CE.PREPS[dlgPrep].desc;
+    $('#dlgWarn').hidden = !model.events.length;
+  }
+  function openAnimalDlg() {
+    dlgSpecies = model.species; dlgPrep = model.prepId;
+    renderAnimalDlg();
+    if (animalDlg.showModal) animalDlg.showModal();
+  }
+  function startAnimal(species, prep) {
+    const changedSpecies = species !== model.species;
+    state.species = species; state.prep = prep;
+    LS.set('species', species); LS.set('prep', prep);
+    resetSession(true);
+    renderAnimal();
+    if (changedSpecies) selectDrug(state.drugId); else updateDose();
+    renderModeHint();
+    const a = animalText();
+    toast('Animal nuevo: ' + a.name + ', ' + a.prep.toLowerCase());
   }
 
   /* ==========================================================
@@ -1721,7 +1910,7 @@ dialog .actions { justify-content: flex-end; }
       g.items.map(d =>
         '<button type="button" class="drug-item" role="option" data-id="' + d.id + '" aria-selected="' + (d.id === state.drugId) + '">' +
         '<span class="di-name">' + esc(d.name) + '</span>' +
-        '<span class="di-dose">' + trimNum(d.dose) + ' ' + d.unit + '</span>' +
+        '<span class="di-dose">' + trimNum(defaultDose(d).dose) + ' ' + defaultDose(d).unit + '</span>' +
         '<span class="di-mech">' + esc(d.mech) + '</span></button>').join('') +
       '</div>').join('');
   }
@@ -2262,7 +2451,7 @@ dialog .actions { justify-content: flex-end; }
     if (s) {
       const { ctx, w, h } = s;
       if (!phys.buf || phys.buf.length !== w) { phys.buf = new Float32Array(w).fill(NaN); phys.head = 0; }
-      const speed = 90;
+      const speed = isRat() ? 240 : 90;
       if (reduceMotion) {
         for (let i = 0; i < w; i++) { const ph = (i / speed * hr / 60) % 1; phys.buf[i] = p.dia + pp * wave(ph); }
         phys.phase = 0.6;
@@ -2381,8 +2570,13 @@ dialog .actions { justify-content: flex-end; }
       if (p.svr > 1.08) { st.textContent = 'Vasoconstricción'; st.className = 'state-pill up'; }
       else if (p.svr < 0.92) { st.textContent = 'Vasodilatación'; st.className = 'state-pill down'; }
       else { st.textContent = 'Tono basal'; st.className = 'state-pill'; }
-      $('#fCo').textContent = nf(p.co, 1);
-      $('#fSv').textContent = nf(p.sv);
+      if (isRat()) {
+        $('#fCo').textContent = nf(p.co * 1000); $('#fCoU').textContent = 'mL/min';
+        $('#fSv').textContent = nf(p.sv, 2);
+      } else {
+        $('#fCo').textContent = nf(p.co, 1); $('#fCoU').textContent = 'L/min';
+        $('#fSv').textContent = nf(p.sv);
+      }
       $('#fMap').textContent = nf(p.map);
       $('#fPp').textContent = nf(pp);
       $('#fPulse').textContent = nf(p.sys) + '/' + nf(p.dia) + ' mmHg';
@@ -2391,7 +2585,9 @@ dialog .actions { justify-content: flex-end; }
       $('#mVag').style.width = clamp(vag / 3, 0, 1) * 100 + '%';
       $('#vSym').textContent = toneTxt(sym);
       $('#vVag').textContent = toneTxt(vag);
-      $('#toneNote').textContent = p.gT < 0.6
+      $('#toneNote').textContent = model.prepId === 'descentralizado'
+        ? 'Animal descentralizado: sin sistema nervioso central no hay barorreflejo ni tono vagal, y el tono simpático es mínimo. Los fármacos actúan sin que nada compense.'
+        : p.gT < 0.6
         ? 'La transmisión ganglionar está bloqueada (' + nf(p.gT * 100) + ' % de la basal): ni el simpático ni el vago llegan a sus órganos y el barorreflejo no puede compensar.'
         : 'La marca indica el tono basal. El barorreflejo sube el tono simpático y baja el vagal cuando la presión cae, y al revés cuando sube.';
       const base = model.points[0];
@@ -2438,9 +2634,9 @@ dialog .actions { justify-content: flex-end; }
   const controlTraceCache = new Map();
   // Traza de la respuesta control con el mismo protocolo que controlResponse (sujeto sin fármacos previos)
   function controlTrace(drugId, ug) {
-    const key = drugId + ':' + ug.toPrecision(6);
+    const key = drugId + ':' + ug.toPrecision(6) + ':' + model.species + ':' + model.prepId;
     if (controlTraceCache.has(key)) return controlTraceCache.get(key);
-    const m = new CE.Model();
+    const m = new CE.Model({ species: model.species, prep: model.prepId });
     m.run(2);
     const t0 = m.s.t;
     m.inject(drugId, ug);
@@ -2551,6 +2747,7 @@ dialog .actions { justify-content: flex-end; }
     const st = S.stats, f = st.final;
     const statsHtml =
       '<div class="stats">' +
+      stat('Animal', SP().name, CE.PREPS[model.prepId].name.toLowerCase()) +
       stat('Duración', fmtT(st.duration)) +
       stat('Administraciones', st.n) +
       stat('Fármacos distintos', st.drugs) +
@@ -2579,7 +2776,7 @@ dialog .actions { justify-content: flex-end; }
     return '<div class="card"><div class="card-head"><h2 class="card-title">Datos</h2></div><div class="actions">' +
       '<button type="button" class="btn-secondary" data-act="csv-points">Exportar registro (CSV)</button>' +
       '<button type="button" class="btn-secondary" data-act="csv-events">Exportar administraciones (CSV)</button>' +
-      '<button type="button" class="btn-secondary danger" data-act="reset">Reiniciar sesión</button></div></div>';
+      '<button type="button" class="btn-secondary danger" data-act="reset">Terminar experimento</button></div></div>';
   }
 
   /* ==========================================================
@@ -2615,10 +2812,10 @@ dialog .actions { justify-content: flex-end; }
   function exportEvents() {
     const S = getSession(true);
     if (!S.items.length) { toast('No hay administraciones que exportar.'); return; }
-    const rows = [['n', 't_s', 'farmaco', 'dosis', 'dosis_ug', 'pre_sis', 'pre_dia', 'pre_pam', 'pre_fc', 'pico_dPAM', 'pico_dSIS', 'pico_dDIA', 'pico_dFC', 'control_dPAM', 'control_dFC', 'comparacion_PAM', 'comparacion_FC', 'respuesta', 'farmacos_presentes', 'interpretacion']];
+    const rows = [['n', 't_s', 'animal', 'preparacion', 'farmaco', 'dosis', 'dosis_ug', 'pre_sis', 'pre_dia', 'pre_pam', 'pre_fc', 'pico_dPAM', 'pico_dSIS', 'pico_dDIA', 'pico_dFC', 'control_dPAM', 'control_dFC', 'comparacion_PAM', 'comparacion_FC', 'respuesta', 'farmacos_presentes', 'interpretacion']];
     S.items.forEach(x => {
       const e = x.evt, r = x.resp, c = x.ctrl;
-      rows.push([e.n, e.t, DRUG_BY_ID[e.drugId].name, e.doseLabel || fmtUg(e.ug), e.ug, e.pre.sys, e.pre.dia, e.pre.map, e.pre.hr,
+      rows.push([e.n, e.t, CE.SPECIES[e.species].name, CE.PREPS[e.prep].name, DRUG_BY_ID[e.drugId].name, e.doseLabel || fmtUg(e.ug), e.ug, e.pre.sys, e.pre.dia, e.pre.map, e.pre.hr,
         r.map.peak, r.sys.peak, r.dia.peak, r.hr.peak, c.map.peak, c.hr.peak,
         CE.CMP_LABEL[x.info.cmp.map], CE.CMP_LABEL[x.info.cmp.hr], x.info.tags.map(t => t.label).join(' / '),
         (e.ctx.modifiers || []).map(m => m.id).filter(id => id !== e.drugId).map(id => DRUG_BY_ID[id].name).join(' / '),
@@ -2672,7 +2869,7 @@ dialog .actions { justify-content: flex-end; }
     $$('#speedSeg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.speed === s)));
   }
 
-  function resetSession() {
+  function resetSession(quiet) {
     model = freshModel();
     state.expanded.clear();
     state.cursorT = null;
@@ -2681,7 +2878,7 @@ dialog .actions { justify-content: flex-end; }
     syncRangeSeg();
     dataChanged(true);
     syncReplayBtn();
-    toast('Sesión reiniciada');
+    if (!quiet) toast('Experimento terminado: animal nuevo sin pretratamiento');
   }
 
   function dataChanged(heavy) {
@@ -2781,6 +2978,11 @@ dialog .actions { justify-content: flex-end; }
 
   // Administración
   $('#drugPick', adminEl).addEventListener('click', openSheet);
+  $('#animalBtn', adminEl).addEventListener('click', openAnimalDlg);
+  $('#dlgSpecies').addEventListener('click', e => { const b = e.target.closest('[data-sp]'); if (b) { dlgSpecies = b.dataset.sp; renderAnimalDlg(); } });
+  $('#dlgPrep').addEventListener('click', e => { const b = e.target.closest('[data-prep]'); if (b) { dlgPrep = b.dataset.prep; renderAnimalDlg(); } });
+  $('#animalCancel').addEventListener('click', () => animalDlg.close());
+  $('#animalOk').addEventListener('click', () => { animalDlg.close(); startAnimal(dlgSpecies, dlgPrep); });
   doseIn.addEventListener('input', updateDose);
   weightIn.addEventListener('input', updateDose);
   unitSel.addEventListener('change', updateDose);
@@ -2857,6 +3059,7 @@ dialog .actions { justify-content: flex-end; }
   model = freshModel();
   placeAdmin();
   applyTheme();
+  renderAnimal();
   selectDrug(state.drugId);
   weightIn.value = trimNum(state.weight, 1);
   setSpeed(state.speed);
