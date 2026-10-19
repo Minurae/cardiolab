@@ -58,7 +58,7 @@
     order: LS.get('order', 'desc'),
     expanded: new Set(),
     replay: null,
-    theme: LS.get('theme', 'auto')
+    theme: ['dark', 'light', 'auto'].includes(LS.get('theme', 'dark')) ? LS.get('theme', 'dark') : 'dark'
   };
   let model = null;
   let session = null, sessionDirty = true, lastSessionAt = 0;
@@ -69,13 +69,16 @@
   const C = {};
   function readColors() {
     const cs = getComputedStyle(document.documentElement);
-    ['ink', 'ink-2', 'muted', 'line', 'line-strong', 'pres', 'pres-band', 'hr', 'surface', 'surface-2', 'surface-3', 'accent', 'grid', 'sym', 'vag', 'marker', 'marker-ink']
+    ['ink', 'ink-2', 'muted', 'line', 'line-strong', 'pres', 'pres-band', 'hr', 'surface', 'surface-2', 'surface-3', 'accent', 'grid', 'sym', 'vag', 'marker', 'marker-ink', 'spark', 'p1', 'p2', 'p3', 'p4', 'p5']
       .forEach(k => { C[k] = cs.getPropertyValue('--' + k).trim(); });
     chart.dirty = true;
   }
   function applyTheme() {
     const r = document.documentElement;
-    if (state.theme === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', state.theme);
+    const t = state.theme === 'auto' ? (mq('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : state.theme;
+    r.setAttribute('data-theme', t);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', t === 'light' ? '#ffffff' : '#000000');
     $('#themeLabel').textContent = 'Tema: ' + ({ auto: 'automático', light: 'claro', dark: 'oscuro' })[state.theme];
     readColors();
   }
@@ -386,7 +389,7 @@
   const TIME_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
 
   function chartLayout(w, h) {
-    const L = 40, R = 10, top = 26, bottom = 20, gap = 30;
+    const L = 40, R = 10, top = 46, bottom = 20, gap = 34;
     const avail = h - top - bottom - gap;
     const p1h = Math.round(avail * 0.6);
     return { L, R, x1: w - R, p1: { t: top, b: top + p1h }, p2: { t: top + p1h + gap, b: h - bottom } };
@@ -448,9 +451,11 @@
         ctx.beginPath(); ctx.moveTo(lay.L, y); ctx.lineTo(lay.x1, y); ctx.stroke();
         ctx.fillText(String(Math.round(v)), lay.L - 6, y);
       }
-      ctx.textAlign = 'left'; ctx.fillStyle = C['ink-2'];
-      ctx.font = '600 11.5px ' + getComputedStyle(document.body).fontFamily;
-      ctx.fillText(title, lay.L, panel.t - 11);
+      ctx.textAlign = 'left'; ctx.fillStyle = C.muted;
+      ctx.font = '600 10.5px ' + getComputedStyle(document.body).fontFamily;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0.6px';
+      ctx.fillText(title.toUpperCase(), lay.L, panel === lay.p1 ? 12 : panel.t - 13);
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
       ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
     }
     grid(yp, Yp, lay.p1, 'Presión arterial, mmHg');
@@ -517,22 +522,19 @@
     }
 
     // Insignias numeradas
-    ctx.font = '700 11px ' + getComputedStyle(document.body).fontFamily;
+    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
     ctx.textAlign = 'center';
     let lastX = -Infinity;
-    const badgeY = lay.p1.t + 10;
+    const triY = lay.p1.t - 1;
     evs.forEach(e => {
       const x = X(e.t);
       const label = String(e.n);
-      const r = label.length > 2 ? 11 : 9.5;
-      if (x - lastX < r * 2 + 3) {
-        ctx.fillStyle = C.marker; ctx.beginPath(); ctx.arc(x, badgeY, 2.5, 0, Math.PI * 2); ctx.fill();
-        return;
-      }
+      const wLab = ctx.measureText(label).width + 8;
+      ctx.fillStyle = C.marker;
+      ctx.beginPath(); ctx.moveTo(x - 5, triY - 8); ctx.lineTo(x + 5, triY - 8); ctx.lineTo(x, triY); ctx.closePath(); ctx.fill();
+      if (x - lastX < Math.max(18, wLab)) return;
       lastX = x;
-      ctx.fillStyle = C.marker; ctx.beginPath(); ctx.arc(x, badgeY, r, 0, Math.PI * 2); ctx.fill();
-      ctx.lineWidth = 2; ctx.strokeStyle = C.surface; ctx.stroke();
-      ctx.fillStyle = C['marker-ink']; ctx.fillText(label, x, badgeY + 0.5);
+      ctx.fillStyle = C.ink; ctx.fillText(label, x, triY - 17);
     });
 
     // Cursor
@@ -762,15 +764,15 @@
     phys.cells = [];
     for (let i = 0; i < 18; i++) {
       const el = document.createElementNS(NS, 'ellipse');
-      el.setAttribute('fill', 'var(--wall-cell)');
+      el.setAttribute('fill', 'none'); el.setAttribute('stroke', 'var(--wall-cell)'); el.setAttribute('stroke-width', '1.4');
       cells.appendChild(el); phys.cells.push(el);
     }
     const rbc = $('#artRbc');
     phys.rbc = [];
     for (let i = 0; i < 7; i++) {
       const g = document.createElementNS(NS, 'g');
-      const o = document.createElementNS(NS, 'circle'); o.setAttribute('r', '7.5'); o.setAttribute('fill', 'var(--rbc)');
-      const c = document.createElementNS(NS, 'circle'); c.setAttribute('r', '3.2'); c.setAttribute('fill', 'var(--blood)'); c.setAttribute('opacity', '.55');
+      const o = document.createElementNS(NS, 'circle'); o.setAttribute('r', '7.5'); o.setAttribute('fill', 'none'); o.setAttribute('stroke', 'var(--rbc)'); o.setAttribute('stroke-width', '1.4');
+      const c = document.createElementNS(NS, 'circle'); c.setAttribute('r', '2.6'); c.setAttribute('fill', 'none'); c.setAttribute('stroke', 'var(--rbc)'); c.setAttribute('stroke-width', '1'); c.setAttribute('opacity', '.6');
       g.appendChild(o); g.appendChild(c); rbc.appendChild(g);
       phys.rbc.push({ el: g, a: Math.random() * Math.PI * 2, f: 0.2 + Math.random() * 0.75, w: (Math.random() - 0.5) * 0.6, ph: Math.random() * 6 });
     }
@@ -827,6 +829,71 @@
     return (s - end) / (1 - end);
   }
   const contraction = ph => ph < 0.32 ? Math.sin(Math.PI * ph / 0.32) : 0;
+
+  /* Corazón de partículas: una constelación de triángulos en contorno (el gesto
+     distintivo de la guía de estilo) que se contrae con cada latido */
+  const heartP = { built: false, parts: [], t: 0 };
+  function heartCurve(t) {
+    return [16 * Math.pow(Math.sin(t), 3), -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t))];
+  }
+  function buildHeart() {
+    const poly = [];
+    for (let i = 0; i < 240; i++) poly.push(heartCurve(i / 240 * Math.PI * 2));
+    const inside = (x, y) => {
+      let c = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [xi, yi] = poly[i], [xj, yj] = poly[j];
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    };
+    let seed = 7;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    const parts = [];
+    const add = (x, y, kind) => parts.push({ x, y, kind, s: 0.32 + rnd() * 0.5, rot: rnd() * Math.PI * 2, spin: (rnd() - 0.5) * 0.6, col: Math.floor(rnd() * 5), tw: rnd() * Math.PI * 2, d: rnd() });
+    while (parts.length < 380) { const x = -17 + rnd() * 34, y = -13 + rnd() * 30; if (inside(x, y)) add(x, y, 0); }
+    for (let i = 0; i < 170; i++) { const [x, y] = heartCurve(rnd() * Math.PI * 2); add(x + (rnd() - 0.5) * 1.6, y + (rnd() - 0.5) * 1.6, 0); }
+    for (let i = 0; i < 70; i++) { const a = rnd() * Math.PI * 2, r = 19 + rnd() * 12; add(Math.cos(a) * r * 1.2, 2 + Math.sin(a) * r * 0.9, 1); }
+    heartP.parts = parts; heartP.built = true;
+  }
+  function drawHeart(dt, c, contr) {
+    if (!heartP.built) buildHeart();
+    const s = sizeCanvas($('#heartCv'));
+    if (!s) return;
+    const { ctx, w, h } = s;
+    heartP.t += dt;
+    const cols = [C.p1, C.p2, C.p3, C.p4, C.p5];
+    const unit = Math.min(w / 46, h / 40);
+    const cx = w / 2, cy = h / 2 - unit * 1.5;
+    const squeeze = 1 - 0.085 * c * Math.sqrt(contr);
+    ctx.clearRect(0, 0, w, h);
+    ctx.lineJoin = 'round';
+    heartP.parts.forEach(q => {
+      let k = 1, alpha;
+      if (q.kind === 0) {
+        // Contracción hacia el centro, más marcada en el borde
+        k = squeeze - 0.02 * c * q.d;
+        alpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(heartP.t * 1.3 + q.tw)) * (0.6 + 0.4 * c);
+      } else {
+        alpha = 0.22 + 0.12 * Math.sin(heartP.t * 0.8 + q.tw);
+      }
+      const drift = q.kind === 1 && !reduceMotion ? Math.sin(heartP.t * 0.25 + q.tw) * 0.6 : 0;
+      const x = cx + (q.x + drift) * unit * k, y = cy + (q.y + drift * 0.5) * unit * k;
+      const r = q.s * unit * 0.55 * (q.kind === 0 ? 1 + 0.25 * c : 0.8);
+      const a = q.rot + (reduceMotion ? 0 : heartP.t * q.spin);
+      ctx.globalAlpha = clamp(alpha, 0, 1);
+      ctx.strokeStyle = cols[q.col];
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let v = 0; v < 3; v++) {
+        const ang = a + v * 2.0944;
+        const px = x + Math.cos(ang) * r, py = y + Math.sin(ang) * r;
+        if (v) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+      }
+      ctx.closePath(); ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+  }
 
   function stepPhysio(dt) {
     buildPhysio();
@@ -887,9 +954,7 @@
     // Corazón
     const c = reduceMotion ? 0 : contraction(phys.phase);
     const contr = clamp(p.contr, 0.3, 2.5);
-    const sc = 1 - 0.075 * c * Math.sqrt(contr);
-    $('#heartBody').setAttribute('transform', 'translate(100 122) scale(' + sc.toFixed(4) + ') translate(-100 -122)');
-    $('#aortaFlow').setAttribute('stroke-opacity', (0.55 * c * clamp(p.sv / BASE.sv, 0.3, 1.6)).toFixed(3));
+    drawHeart(dt, c, contr);
 
     // Arteriola: el radio de la luz sigue a la resistencia (Poiseuille, R ∝ 1/r⁴), exagerado para que se vea
     const target = clamp(56 * Math.pow(p.svr, -0.85), 14, 74);
@@ -1075,7 +1140,7 @@
     $('#orderSeg').hidden = n < 2;
     const box = $('#evList');
     if (!n) {
-      box.innerHTML = '<div class="card empty"><h3>Aún no hay administraciones</h3><p>Cada dosis que administres aparecerá aquí junto a la respuesta que tendría un sujeto sin fármacos previos.</p><button type="button" class="btn-secondary" data-goto="registro">Ir a Registro</button></div>';
+      box.innerHTML = '<div class="card empty"><h3>Aún no hay administraciones</h3><p>Cada dosis que administres aparecerá aquí junto a la respuesta que tendría un sujeto sin fármacos previos.</p><button type="button" class="ghost" data-goto="registro">Ir a Registro</button></div>';
       return;
     }
     if (state.order === 'desc') items.reverse();
@@ -1108,8 +1173,8 @@
           '<p class="mech">Basal previa: ' + nf(e.pre.sys) + '/' + nf(e.pre.dia) + ' mmHg, PAM ' + nf(e.pre.map) + ', FC ' + nf(e.pre.hr) + ' lpm.' +
           (mods.length ? ' Presentes: ' + esc(mods.join(', ')) + '.' : ' Sin otros fármacos activos.') +
           (r.duration > 0 ? ' Duración del efecto sobre la PAM: ' + fmtT(r.duration) + '.' : '') + '</p>' +
-          '<div class="ev-actions"><button type="button" class="btn-secondary" data-view="' + e.n + '">Ver en la gráfica</button>' +
-          '<button type="button" class="btn-secondary" data-replay="' + e.n + '">Ver en Fisiología</button></div>' +
+          '<div class="ev-actions"><button type="button" class="ghost" data-view="' + e.n + '">Ver en la gráfica</button>' +
+          '<button type="button" class="ghost" data-replay="' + e.n + '">Ver en Fisiología</button></div>' +
           '</div>';
       }
       return '<article class="ev' + (info.changed ? ' changed' : '') + '">' +
@@ -1129,7 +1194,7 @@
     const S = getSession();
     const box = $('#sessionBox');
     if (!S.items.length) {
-      box.innerHTML = '<div class="card empty"><h3>La sesión está vacía</h3><p>Administra un fármaco y aquí aparecerán el resumen, las respuestas que difieren del control y los bloqueos que persisten.</p><button type="button" class="btn-secondary" data-goto="registro">Ir a Registro</button></div>' + actionsCard();
+      box.innerHTML = '<div class="card empty"><h3>La sesión está vacía</h3><p>Administra un fármaco y aquí aparecerán el resumen, las respuestas que difieren del control y los bloqueos que persisten.</p><button type="button" class="ghost" data-goto="registro">Ir a Registro</button></div>' + actionsCard();
       return;
     }
     const st = S.stats, f = st.final;
@@ -1149,11 +1214,11 @@
       ? '<ul class="concl">' + S.findings.map(x => '<li><b>#' + x.evt.n + ' ' + esc(DRUG_BY_ID[x.evt.drugId].name) + '</b>: presión ' + esc(CE.CMP_LABEL[x.info.cmp.map].toLowerCase()) + ', FC ' + esc(CE.CMP_LABEL[x.info.cmp.hr].toLowerCase()) + '.</li>').join('') + '</ul>'
       : '<p class="card-sub">Todas las respuestas fueron comparables a su control.</p>';
     box.innerHTML =
-      '<div class="card"><div class="card-head"><h2 class="card-title">Resumen de la sesión</h2></div>' + statsHtml + '</div>' +
-      '<div class="card"><div class="card-head"><h2 class="card-title">Conclusiones</h2></div><ul class="concl">' +
+      '<div class="card"><div class="card-head"><h2 class="headline">Resumen de la sesión</h2></div>' + statsHtml + '</div>' +
+      '<div class="card"><div class="card-head"><h2 class="eyebrow">Conclusiones</h2></div><ul class="concl">' +
       S.conclusions.map(c => '<li>' + esc(c) + '</li>').join('') + '</ul></div>' +
-      '<div class="card"><div class="card-head"><h2 class="card-title">Respuestas que difieren del control</h2><span class="card-sub">' + S.findings.length + ' de ' + S.items.length + '</span></div>' + findings + '</div>' +
-      '<div class="card"><div class="card-head"><h2 class="card-title">Al final de la sesión</h2></div>' +
+      '<div class="card"><div class="card-head"><h2 class="eyebrow">Respuestas que difieren del control</h2><span class="card-sub">' + S.findings.length + ' de ' + S.items.length + '</span></div>' + findings + '</div>' +
+      '<div class="card"><div class="card-head"><h2 class="eyebrow">Al final de la sesión</h2></div>' +
       (blocks.length ? '<div class="chips">' + blocks.join('') + '</div>' : '<p class="card-sub">No persisten bloqueos relevantes.</p>') + '</div>' +
       actionsCard();
   }
@@ -1161,10 +1226,10 @@
     return '<div class="stat"><span>' + esc(label) + '</span><b>' + esc(String(val)) + '</b>' + (small ? ' <small>' + esc(small) + '</small>' : '') + '</div>';
   }
   function actionsCard() {
-    return '<div class="card"><div class="card-head"><h2 class="card-title">Datos</h2></div><div class="actions">' +
-      '<button type="button" class="btn-secondary" data-act="csv-points">Exportar registro (CSV)</button>' +
-      '<button type="button" class="btn-secondary" data-act="csv-events">Exportar administraciones (CSV)</button>' +
-      '<button type="button" class="btn-secondary danger" data-act="reset">Terminar experimento</button></div></div>';
+    return '<div class="card"><div class="card-head"><h2 class="eyebrow">Datos</h2></div><div class="actions">' +
+      '<button type="button" class="ghost" data-act="csv-points">Exportar registro (CSV)</button>' +
+      '<button type="button" class="ghost" data-act="csv-events">Exportar administraciones (CSV)</button>' +
+      '<button type="button" class="ghost danger" data-act="reset">Terminar experimento</button></div></div>';
   }
 
   /* ==========================================================
@@ -1352,7 +1417,7 @@
   });
   function runAction(act) {
     if (act === 'theme') {
-      state.theme = ({ auto: 'light', light: 'dark', dark: 'auto' })[state.theme];
+      state.theme = ({ dark: 'light', light: 'auto', auto: 'dark' })[state.theme];
       LS.set('theme', state.theme); applyTheme();
     } else if (act === 'csv-points') exportPoints();
     else if (act === 'csv-events') exportEvents();
@@ -1412,7 +1477,7 @@
 
   window.addEventListener('resize', () => { chart.dirty = true; });
   const schemeMq = mq('(prefers-color-scheme: dark)');
-  if (schemeMq.addEventListener) schemeMq.addEventListener('change', readColors);
+  if (schemeMq.addEventListener) schemeMq.addEventListener('change', () => { if (state.theme === 'auto') applyTheme(); });
 
   /* ---------- Bucle principal ---------- */
   let lastFrame = performance.now(), simAcc = 0, lastMiniDraw = 0;
