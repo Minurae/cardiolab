@@ -109,7 +109,7 @@
     $('#dpCat', adminEl).textContent = CAT_NAME[d.cat];
     $('#dpName', adminEl).textContent = d.name;
     $('#dpMech', adminEl).textContent = d.mech;
-    $('#dpDesc', adminEl).textContent = d.desc;
+    $('#dpDesc', adminEl).textContent = ((model && model.D) || DRUG_BY_ID)[d.id].desc;
   }
 
   // Especie del animal actual y dosis habitual de cada fármaco en esa especie
@@ -217,6 +217,7 @@
       state.cursorT = null;
       syncRangeSeg();
       toast('#' + evt.n + ' ' + d.name + ' ' + label + ': respuesta registrada en ' + fmtT(secs));
+      checkArrest();
       if (state.tab === 'fisio') startReplay(evt.n);
     } else {
       if (!state.running) setRunning(true);
@@ -227,7 +228,7 @@
 
   function renderModeHint() {
     $('#modeHint', adminEl).textContent = (state.mode === 'imm'
-      ? 'Modo inmediato: la simulación avanza hasta que la respuesta se estabiliza (entre 20 y 150 s).'
+      ? 'Modo inmediato: la simulación avanza hasta que la respuesta se estabiliza (' + (isRat() ? 'en la rata, hasta 10 min' : 'entre 20 y 150 s') + ').'
       : 'Modo en vivo: el fármaco actúa en tiempo real a la velocidad elegida. Puedes encadenar dosis sin esperar.') +
       (isRat() ? ' Las dosis van por kg de peso, como en la guía.' : '');
   }
@@ -1301,7 +1302,7 @@
     state.mode = mode; LS.set('mode', mode);
     $$('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
     $('#liveBar').hidden = mode !== 'live';
-    state.view = mode === 'live' ? { span: 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
+    state.view = mode === 'live' ? { span: isRat() ? 300 : 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
     if (mode === 'live') setRunning(true);
     syncRangeSeg();
     renderModeHint();
@@ -1327,7 +1328,7 @@
     state.expanded.clear();
     state.cursorT = null;
     state.replay = null;
-    state.view = state.mode === 'live' ? { span: 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
+    state.view = state.mode === 'live' ? { span: isRat() ? 300 : 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
     syncRangeSeg();
     dataChanged(true);
     syncReplayBtn();
@@ -1479,6 +1480,13 @@
   const schemeMq = mq('(prefers-color-scheme: dark)');
   if (schemeMq.addEventListener) schemeMq.addEventListener('change', () => { if (state.theme === 'auto') applyTheme(); });
 
+  // Paro cardíaco en la rata (p. ej. acetilcolina con la colinesterasa inhibida)
+  function checkArrest() {
+    if (!model.s.arrest || model.arrestShown) return;
+    model.arrestShown = true;
+    toast('Paro cardíaco: el animal murió. Pulsa «Terminar experimento» para seguir con uno nuevo.');
+  }
+
   /* ---------- Bucle principal ---------- */
   let lastFrame = performance.now(), simAcc = 0, lastMiniDraw = 0;
   function frame(now) {
@@ -1492,6 +1500,7 @@
         n = Math.min(n, 1200);
         for (let i = 0; i < n; i++) model.step(DT);
         dataChanged(false);
+        checkArrest();
         if ((state.tab === 'historial' || state.tab === 'sesion') && now - lastSessionAt > 1200) {
           if (state.tab === 'historial') renderHistory(); else renderSession();
         }

@@ -864,8 +864,8 @@ dialog .actions { justify-content: flex-end; }
       base: BASE, hrMin: 20, hrMax: 280, hrExp: 1, scale: 1, thr: { map: 4, hr: 4 }
     },
     rata: {
-      id: 'rata', name: 'Rata', detail: 'anestesiada, 300 g', weight: 0.3,
-      base: { map: 100, hr: 380, sv: 0.3, pp: 35 }, hrMin: 180, hrMax: 600, hrExp: 0.5, scale: 10 / 0.3, thr: { map: 4, hr: 12 }
+      id: 'rata', name: 'Rata', detail: 'anestesiada, 300 g', weight: 0.3, K: null,
+      base: { map: 91, hr: 178, sv: 0.3, pp: 12 }, hrMin: 0, hrMax: 420, hrExp: 1, scale: 10 / 0.3, thr: { map: 4, hr: 6 }
     }
   };
 
@@ -1146,6 +1146,233 @@ dialog .actions { justify-content: flex-end; }
     return { hrTarget, sv, co, svr, mapTarget };
   }
 
+  /* ==========================================================
+     Modelo de la rata anestesiada
+     Calibrado con los registros del CardioLab original de la Práctica 7.
+     Usa el mismo esquema de receptores que el modelo humano, con parámetros propios:
+     · potencia y cinética de cada fármaco en la rata (RAT_PD, en µg del modelo:
+       1 µg/kg en la rata = 10 µg del modelo)
+     · barorreflejo asimétrico: compensa las caídas de presión con taquicardia, pero
+       casi no frena el corazón ante las subidas (rata anestesiada, tono vagal bajo)
+     · gasto cardíaco poco dependiente de la FC (con FC alta se acorta el llenado) y
+       presión de pulso que crece con la contractilidad β1
+     · efecto estabilizador de membrana (bloqueo de canales de Na⁺) de propranolol y
+       cocaína a dosis altas, que deprime algo la FC
+     · paro cardíaco si la FC se mantiene por debajo de un umbral crítico
+     El modelo humano no usa nada de este bloque.
+     ========================================================== */
+  const RAT_PD = {
+    adr: { ag: { a1: 10.4, a2: 25, b1: 4.15, b2: 0.616 }, t12: 24.8, onset: 3,
+      desc: 'Estimula α1, β1 y β2. Primero sube la presión por α1 y después cae por debajo de la basal cuando predomina β2 (respuesta bifásica), con taquicardia β1.' },
+    nor: { ag: { a1: 14.8, a2: 20, b1: 12, b2: 4000 }, t12: 22.2, onset: 3,
+      desc: 'Vasoconstricción α1 potente y acción β1 directa, con poca acción β2. En la rata anestesiada sube sistólica y diastólica con taquicardia, porque el reflejo vagal es débil.' },
+    iso: { ag: { b1: 0.05, b2: 0.855 }, t12: 21.8, onset: 3,
+      desc: 'Agonista β puro: caída brusca de la presión por β2 y gran taquicardia β1. Al pasar la vasodilatación, la sistólica puede quedar un poco por encima de la basal.' },
+    phe: { ag: { a1: 109 }, t12: 32.7, onset: 3,
+      desc: 'Vasoconstricción α1 pura. Sube mucho la presión; en la rata anestesiada la frecuencia cardíaca casi no cambia porque el reflejo vagal es débil.' },
+    prz: { ant: { a1: 128 }, t12: 3600, onset: 200 },
+    pro: { ant: { b1: 60, b2: 60 }, inh: { mem: 5320 }, t12: 3600, onset: 175,
+      desc: 'Bloqueo β no selectivo. Baja la FC basal (a esta dosis también por un efecto estabilizador de membrana) y anula las respuestas β1 y β2 de los agonistas.' },
+    ate: { ant: { b1: 1.97, b2: 1000000 }, t12: 3600, onset: 40 },
+    ach: { ag: { m: 4.5, n: 93.7 }, t12: 3.98, onset: 3.51 },
+    atr: { ant: { m: 133 }, t12: 1800, onset: 20 },
+    neo: { inh: { ache: 22300 }, t12: 3600, onset: 60,
+      desc: 'Impide la hidrólisis de la acetilcolina: aumenta el tono vagal y potencia y prolonga la acetilcolina exógena. Con acetilcolina a dosis alta puede causar paro cardíaco.' },
+    coc: { ant: { net: 632 }, inh: { mem: 18000 }, t12: 1800, onset: 40,
+      desc: 'Bloquea NET: potencia mucho a la noradrenalina y la adrenalina exógenas y anula a la tiramina. Por su efecto anestésico local baja un poco la FC y la presión.' },
+    tyr: { ag: { net: 1460 }, t12: 60, onset: 20 }
+  };
+
+  const K_RAT = {
+    endo: { a1: 0.176, a2: 0.3, b1: 0.2, m2: 0.0628, at1: 0.25, g0: 3 },
+    acheK: 34,   // potenciación de la acetilcolina con la colinesterasa inhibida
+    netK: 5.64,   // potenciación de catecolaminas exógenas con NET bloqueado
+    m2ex: 0.0698,   // peso del estímulo muscarínico exógeno sobre M2 cardíaco
+    hr: { b1: 0.772, m2: 4.65, mem: 0.0816 },
+    contr: { b1: 0.508, m2: 0.12 },
+    svr: { a1: 2.35, a2: 0.6, b2: 0.651, m3: 6 },
+    adrenal: 1.6,
+    baro: { symUp: 0.113, symDown: 3.33, vagUp: 0.212, vagDown: 1, tauSym: 56.2, tauVag: 2 },
+    coPow: 0.02,
+    svContr: 0.313,
+    ppContr: 4.01,
+    ppMap: 0.05,
+    tauMap: 26.9,
+    tauHr: 12,
+    lagB2: 14.5,   // retraso (s) de la vasodilatación β2 de los agonistas
+    arrest: { hr: 60, secs: 15, tauMap: 150, tauHr: 4 }
+  };
+  K_RAT.build = function () {
+    const D = {};
+    DRUGS.forEach(d => { D[d.id] = Object.assign({}, d, RAT_PD[d.id] || {}); });
+    K_RAT.D = D;
+  };
+  K_RAT.PD = RAT_PD;
+
+  function computeEffectsRat(s, K) {
+    const D = K.D, EN = K.endo;
+    const S = {}, shift = {};
+    REC.forEach(r => { S[r] = 0; shift[r] = 1; });
+    let caSum = 0, acheSum = 0, resSum = 0, memSum = 0;
+    for (const id in s.ce) {
+      const d = D[id], c = s.ce[id];
+      if (!d.inh || c <= 1e-9) continue;
+      if (d.inh.ca) caSum += c / d.inh.ca;
+      if (d.inh.ache) acheSum += c / d.inh.ache;
+      if (d.inh.res) resSum += c / d.inh.res;
+      if (d.inh.mem) memSum += c / d.inh.mem;
+    }
+    const Eca = caSum / (1 + caSum), Eache = acheSum / (1 + acheSum);
+    const Eres = resSum / (1 + resSum), Emem = memSum / (1 + memSum);
+    for (const id in s.ce) {
+      const d = D[id], c = s.ce[id];
+      if (!d.ant || c <= 1e-9) continue;
+      for (const r in d.ant) shift[r] += c / d.ant[r];
+    }
+    const thNet = (shift.net - 1) / shift.net;
+    const netBoost = 1 + K.netK * thNet;
+    for (const id in s.ce) {
+      const d = D[id];
+      if (!d.ag) continue;
+      const c = s.ce[id];
+      if (c <= 1e-9 && !(d.cns && s.cns[id] > 1e-9)) continue;
+      const potency = d.ache ? (1 + K.acheK * Eache) : 1;
+      for (const r in d.ag) {
+        if (r === 'a2c') { S.a2c += (s.cns[id] || 0) / d.ag[r]; continue; }
+        let v = c / d.ag[r] * potency;
+        if (d.netSub && (r === 'a1' || r === 'a2' || r === 'b1')) v *= netBoost;
+        S[r] += v;
+      }
+    }
+    // La vasodilatación β2 de los agonistas llega con retraso respecto a α1 (biofase más lenta):
+    // por eso la adrenalina sube primero la presión y luego la baja por debajo de la basal
+    const Sb2raw = S.b2;
+    if (K.lagB2) S.b2 = s.lagB2 || 0;
+    const act = (r, extra) => { const st = S[r] + (extra || 0); return st / (st + shift[r]); };
+    const gT = (EN.g0 / (EN.g0 + shift.n)) / (EN.g0 / (EN.g0 + 1));
+    const En = S.n / (S.n + shift.n);
+    const Erel = S.net / (S.net + shift.net);
+    const thA2 = (shift.a2 - 1) / shift.a2;
+    const Ea2exo = act('a2');
+    const presyn = (1 + 0.6 * thA2) * (1 - 0.35 * Ea2exo);
+    const store = s.store;
+    // En la rata el bloqueo de NET no aumenta el tono simpático endógeno
+    const Pr = store * (presyn * (gT * s.sym + 2.6 * En) + 2.5 * Erel);
+    const Ad = K.adrenal * En * store;
+    const V = (gT * s.vag + 1.0 * En) * (1 + 1.5 * Eache);
+    const Ea1 = act('a1', EN.a1 * Pr + 0.3 * Ad);
+    const Ea2 = act('a2', EN.a2 * Pr);
+    const Eb1 = act('b1', EN.b1 * Pr + 0.6 * Ad);
+    const Eb2 = act('b2', 0.8 * Ad);
+    const Sm2 = K.m2ex * S.m + EN.m2 * V;
+    const Em2 = Sm2 / (Sm2 + shift.m);
+    const Em3 = S.m / (S.m + shift.m);
+    const Eh1 = act('h1'), Ed1 = act('d1'), Ev1 = act('v1');
+    const Eat1 = act('at1', EN.at1);
+    const Eno = act('no'), Even = act('ven');
+    const Ea2c = S.a2c / (S.a2c + 1);
+    const hrf = (1 + K.hr.b1 * Eb1) / (1 + K.hr.m2 * Em2) * (1 - 0.7 * Eca) * (1 - K.hr.mem * Emem);
+    const contr = (1 + K.contr.b1 * Eb1) * (1 - K.contr.m2 * Em2) * (1 - 0.35 * Eca) * (1 - K.hr.mem * Emem);
+    const preload = (1 + 0.1 * Ea1) / (1 + 0.5 * Even);
+    const sv = K.svr;
+    const svrf = (1 + sv.a1 * Ea1 + sv.a2 * Ea2 + 1.5 * Ev1 + 1.7 * Eat1) /
+      ((1 + sv.b2 * Eb2) * (1 + sv.m3 * Em3) * (1 + 1.3 * Eno) * (1 + 0.9 * Eh1) * (1 + 0.5 * Ed1) * (1 + 0.6 * Eca));
+    const blk = r => (shift[r] - 1) / shift[r];
+    return {
+      hrf, contr, preload, svrf, Ea2c, Eres, Eache, Eca, gT, Emem, Sb2raw,
+      E: { a1: Ea1, a2: Ea2, b1: Eb1, b2: Eb2, m2: Em2, m3: Em3, n: En, h1: Eh1, d1: Ed1, v1: Ev1, at1: Eat1, no: Eno, ven: Even, net: Erel, a2c: Ea2c },
+      B: { a1: blk('a1'), a2: blk('a2'), b1: blk('b1'), b2: blk('b2'), m: blk('m'), n: blk('n'), h1: blk('h1'), at1: blk('at1'), net: thNet, ca: Eca, ache: Eache, res: 1 - store },
+      shift
+    };
+  }
+
+  function initRat(s, sp) {
+    const K = sp.K;
+    if (!K.D) K.build();
+    K.REF = computeEffectsRat({ c: {}, ce: {}, cns: {}, sym: 1, vag: 1, store: 1 }, K);
+    s.arrest = false; s.lowHr = 0; s.lagB2 = 0;
+  }
+
+  function hemoRat(s, fx, sp) {
+    const K = sp.K, B = sp.base, R = K.REF;
+    const hrTarget = clamp(B.hr * fx.hrf / R.hrf, sp.hrMin, sp.hrMax);
+    const rel = Math.max(s.hr / B.hr, 0.05);
+    const cr = fx.contr / R.contr, pl = fx.preload / R.preload;
+    const sv = B.sv * Math.pow(cr, K.svContr) * pl * Math.pow(rel, K.coPow - 1);
+    const svr = fx.svrf / R.svrf;
+    const coRel = Math.pow(rel, K.coPow) * Math.pow(cr, K.svContr) * pl;
+    const mapTarget = clamp(B.map * coRel * svr, 0, 260);
+    return { hrTarget, sv, co: Math.max(s.hr, 0) * sv, svr, mapTarget, cr };
+  }
+
+  function stepRat(m, dt) {
+    const s = m.s, K = m.sp.K, D = K.D;
+    const fx0 = computeEffectsRat(s, K);
+    for (const id in s.c) {
+      const d = D[id];
+      let t12 = d.t12;
+      if (d.ache) t12 *= 1 + 9 * fx0.Eache;
+      s.c[id] *= Math.exp(-Math.LN2 / t12 * dt);
+      s.ce[id] += (s.c[id] - s.ce[id]) * (1 - Math.exp(-dt / d.onset));
+      if (d.cns) s.cns[id] += (s.c[id] - s.cns[id]) * (1 - Math.exp(-dt / d.cns));
+      if (s.c[id] < 1e-7 && s.ce[id] < 1e-7 && (!d.cns || s.cns[id] < 1e-7)) {
+        delete s.c[id]; delete s.ce[id]; delete s.cns[id];
+      }
+    }
+    if (K.lagB2) s.lagB2 = (s.lagB2 || 0) + (fx0.Sb2raw - (s.lagB2 || 0)) * (1 - Math.exp(-dt / K.lagB2));
+    const fx = computeEffectsRat(s, K);
+    let storeTarget = 1 - 0.95 * fx.Eres;
+    if (m.prep.store !== undefined) storeTarget = Math.min(storeTarget, m.prep.store);
+    s.store += (storeTarget - s.store) * (1 - Math.exp(-dt / (storeTarget < s.store ? 30 : 240)));
+
+    const B = m.sp.base, bk = K.baro;
+    const setPoint = B.map * (1 - 0.22 * fx.Ea2c);
+    const e = (s.map - setPoint) / B.map;
+    let symT = clamp((1 - (e > 0 ? bk.symUp : bk.symDown) * e) / (1 + 1.5 * fx.Ea2c), 0.03, 4);
+    let vagT = clamp((1 + (e > 0 ? bk.vagUp : bk.vagDown) * e) * (1 + 0.8 * fx.Ea2c), 0, 4);
+    if (m.prep.pithed) { symT = m.prep.symTone; vagT = 0; }
+    s.sym += (symT - s.sym) * (1 - Math.exp(-dt / bk.tauSym));
+    s.vag += (vagT - s.vag) * (1 - Math.exp(-dt / bk.tauVag));
+
+    const h = hemoRat(s, fx, m.sp);
+    let hrT = m.prep.hrFactor ? h.hrTarget * m.prep.hrFactor : h.hrTarget;
+    let mapT = h.mapTarget, tauHr = K.tauHr, tauMap = K.tauMap;
+    // Paro cardíaco: FC por debajo del umbral crítico durante varios segundos
+    if (K.arrest && !s.arrest) {
+      s.lowHr = s.hr < K.arrest.hr ? s.lowHr + dt : 0;
+      if (s.lowHr >= K.arrest.secs) s.arrest = true;
+    }
+    if (s.arrest) { hrT = 0; mapT = 0; tauHr = K.arrest.tauHr; tauMap = K.arrest.tauMap; }
+    s.hr += (hrT - s.hr) * (1 - Math.exp(-dt / tauHr));
+    s.map += (mapT - s.map) * (1 - Math.exp(-dt / tauMap));
+    s.t = Math.round((s.t + dt) * 1000) / 1000;
+    m.record(fx, h);
+  }
+
+  function recordRat(m, fx, h) {
+    const s = m.s, K = m.sp.K, SB = m.sp.base;
+    fx = fx || computeEffectsRat(s, K);
+    h = h || hemoRat(s, fx, m.sp);
+    const cr = fx.contr / K.REF.contr;
+    const pp = SB.pp * Math.pow(cr, K.ppContr) * Math.pow(Math.max(s.map, 0) / SB.map, K.ppMap);
+    const r3 = v => Math.round(v * 1000) / 1000;
+    const E = {}, Bk = {};
+    for (const k in fx.E) E[k] = r3(fx.E[k]);
+    for (const k in fx.B) Bk[k] = r3(fx.B[k]);
+    m.points.push({
+      t: s.t,
+      sys: s.map + pp * 2 / 3,
+      dia: Math.max(0, s.map - pp / 3),
+      map: s.map,
+      hr: Math.max(0, s.hr),
+      sv: h.sv, co: Math.max(s.hr, 0) * h.sv / 1000, svr: h.svr,
+      contr: cr,
+      sym: s.sym, vag: s.vag, gT: fx.gT,
+      arrest: s.arrest || undefined,
+      E, B: Bk
+    });
+  }
+
   class Model {
     constructor(opts) {
       opts = opts || {};
@@ -1154,6 +1381,8 @@ dialog .actions { justify-content: flex-end; }
       this.species = this.sp.id;
       this.prepId = this.prep.id;
       this.s = freshState(this.sp);
+      this.D = this.sp.K ? (this.sp.K.D || (this.sp.K.build(), this.sp.K.D)) : DRUG_BY_ID;
+      if (this.sp.K) initRat(this.s, this.sp);
       if (this.prep.pithed) { this.s.sym = this.prep.symTone; this.s.vag = 0; }
       this.points = [];
       this.events = [];
@@ -1173,7 +1402,7 @@ dialog .actions { justify-content: flex-end; }
     activeDrugs(threshold) {
       const out = [];
       for (const id in this.s.ce) {
-        const d = DRUG_BY_ID[id];
+        const d = this.D[id];
         const c = Math.max(this.s.ce[id], this.s.c[id] || 0);
         const ref = d.ag ? Math.min(...Object.values(d.ag)) : d.ant ? Math.min(...Object.values(d.ant)) : Math.min(...Object.values(d.inh));
         if (c / ref > (threshold || 0.15)) out.push({ id, rel: c / ref });
@@ -1207,6 +1436,7 @@ dialog .actions { justify-content: flex-end; }
 
     step(dt) {
       dt = dt || DT;
+      if (this.sp.K) return stepRat(this, dt);
       const s = this.s;
       const fx0 = computeEffects(s);
       // Farmacocinética: eliminación y compartimento efecto
@@ -1249,6 +1479,7 @@ dialog .actions { justify-content: flex-end; }
     }
 
     record(fx, h) {
+      if (this.sp.K) return recordRat(this, fx, h);
       const s = this.s;
       fx = fx || computeEffects(s);
       h = h || hemo(s, fx, this.sp);
@@ -1280,17 +1511,20 @@ dialog .actions { justify-content: flex-end; }
     /* Avanza hasta que la respuesta se estabiliza (modo inmediato) */
     runUntilSettled(minS, maxS, drugId) {
       const t0 = this.s.t;
-      const dd = DRUG_BY_ID[drugId];
+      const dd = this.D[drugId];
       if (dd) minS = Math.max(minS, dd.onset * 5, (dd.cns || 0) * 4);
+      // En la rata las respuestas duran varios minutos, como en el registro original
+      const rat = !!this.sp.K, lag = rat ? 301 : 31;
+      if (rat) { minS = Math.max(minS, 60); maxS = Math.max(maxS, 600); }
       this.run(minS);
       while (this.s.t - t0 < maxS) {
         this.run(1);
         const p = this.points, n = p.length;
-        const a = p[n - 1], b = p[n - 31];
+        const a = p[n - 1], b = p[n - lag];
         if (!b) continue;
-        if (Math.abs(a.map - b.map) < 0.25 && Math.abs(a.hr - b.hr) < 0.3) {
+        if (Math.abs(a.map - b.map) < (rat ? 0.6 : 0.25) && Math.abs(a.hr - b.hr) < (rat ? 1 : 0.3)) {
           const allTiny = Object.keys(this.s.c).every(id => {
-            const d = DRUG_BY_ID[id];
+            const d = this.D[id];
             return d.t12 > 200 || this.s.ce[id] < 0.05 * (d.ag ? Math.min(...Object.values(d.ag)) : 1);
           });
           if (allTiny) break;
@@ -1352,8 +1586,9 @@ dialog .actions { justify-content: flex-end; }
     m.run(2);
     const t0 = m.s.t;
     m.inject(drugId, ug);
-    const d = DRUG_BY_ID[drugId];
-    m.run(d.t12 > 200 ? 60 : Math.min(120, Math.max(40, d.t12 * 4 + 20)));
+    const d = m.D[drugId];
+    if (sp.K) m.run(d.t12 > 200 ? 360 : 300);
+    else m.run(d.t12 > 200 ? 60 : Math.min(120, Math.max(40, d.t12 * 4 + 20)));
     const r = responseMetrics(m.points, t0, m.s.t);
     controlCache.set(key, r);
     return r;
@@ -1392,7 +1627,8 @@ dialog .actions { justify-content: flex-end; }
   const byInh = k => d => d.inh && d.inh[k];
 
   function interpretEvent(evt, resp, ctrl) {
-    const d = DRUG_BY_ID[evt.drugId];
+    const spE = SPECIES[evt.species] || SPECIES.humano;
+    const d = spE.K ? spE.K.D[evt.drugId] : DRUG_BY_ID[evt.drugId];
     const B = evt.ctx.B;
     const map = resp.map, hr = resp.hr;
     // Umbrales de la especie (en el humano, 4 mmHg y 4 lpm)
@@ -1520,7 +1756,9 @@ dialog .actions { justify-content: flex-end; }
     };
   }
 
-  const api = { DT, BASE, SPECIES, PREPS, DRUGS, DRUG_BY_ID, CATEGORIES, REC_LABEL, Model, toMicrograms, responseMetrics, controlResponse, computeEffects, interpretEvent, interpretSession, CMP_LABEL };
+  SPECIES.rata.K = K_RAT;
+
+  const api = { DT, BASE, SPECIES, K_RAT, PREPS, DRUGS, DRUG_BY_ID, CATEGORIES, REC_LABEL, Model, toMicrograms, responseMetrics, controlResponse, computeEffects, interpretEvent, interpretSession, CMP_LABEL };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CardioEngine = api;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1638,7 +1876,7 @@ dialog .actions { justify-content: flex-end; }
     $('#dpCat', adminEl).textContent = CAT_NAME[d.cat];
     $('#dpName', adminEl).textContent = d.name;
     $('#dpMech', adminEl).textContent = d.mech;
-    $('#dpDesc', adminEl).textContent = d.desc;
+    $('#dpDesc', adminEl).textContent = ((model && model.D) || DRUG_BY_ID)[d.id].desc;
   }
 
   // Especie del animal actual y dosis habitual de cada fármaco en esa especie
@@ -1746,6 +1984,7 @@ dialog .actions { justify-content: flex-end; }
       state.cursorT = null;
       syncRangeSeg();
       toast('#' + evt.n + ' ' + d.name + ' ' + label + ': respuesta registrada en ' + fmtT(secs));
+      checkArrest();
       if (state.tab === 'fisio') startReplay(evt.n);
     } else {
       if (!state.running) setRunning(true);
@@ -1756,7 +1995,7 @@ dialog .actions { justify-content: flex-end; }
 
   function renderModeHint() {
     $('#modeHint', adminEl).textContent = (state.mode === 'imm'
-      ? 'Modo inmediato: la simulación avanza hasta que la respuesta se estabiliza (entre 20 y 150 s).'
+      ? 'Modo inmediato: la simulación avanza hasta que la respuesta se estabiliza (' + (isRat() ? 'en la rata, hasta 10 min' : 'entre 20 y 150 s') + ').'
       : 'Modo en vivo: el fármaco actúa en tiempo real a la velocidad elegida. Puedes encadenar dosis sin esperar.') +
       (isRat() ? ' Las dosis van por kg de peso, como en la guía.' : '');
   }
@@ -2830,7 +3069,7 @@ dialog .actions { justify-content: flex-end; }
     state.mode = mode; LS.set('mode', mode);
     $$('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
     $('#liveBar').hidden = mode !== 'live';
-    state.view = mode === 'live' ? { span: 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
+    state.view = mode === 'live' ? { span: isRat() ? 300 : 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
     if (mode === 'live') setRunning(true);
     syncRangeSeg();
     renderModeHint();
@@ -2856,7 +3095,7 @@ dialog .actions { justify-content: flex-end; }
     state.expanded.clear();
     state.cursorT = null;
     state.replay = null;
-    state.view = state.mode === 'live' ? { span: 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
+    state.view = state.mode === 'live' ? { span: isRat() ? 300 : 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
     syncRangeSeg();
     dataChanged(true);
     syncReplayBtn();
@@ -3008,6 +3247,13 @@ dialog .actions { justify-content: flex-end; }
   const schemeMq = mq('(prefers-color-scheme: dark)');
   if (schemeMq.addEventListener) schemeMq.addEventListener('change', () => { if (state.theme === 'auto') applyTheme(); });
 
+  // Paro cardíaco en la rata (p. ej. acetilcolina con la colinesterasa inhibida)
+  function checkArrest() {
+    if (!model.s.arrest || model.arrestShown) return;
+    model.arrestShown = true;
+    toast('Paro cardíaco: el animal murió. Pulsa «Terminar experimento» para seguir con uno nuevo.');
+  }
+
   /* ---------- Bucle principal ---------- */
   let lastFrame = performance.now(), simAcc = 0, lastMiniDraw = 0;
   function frame(now) {
@@ -3021,6 +3267,7 @@ dialog .actions { justify-content: flex-end; }
         n = Math.min(n, 1200);
         for (let i = 0; i < n; i++) model.step(DT);
         dataChanged(false);
+        checkArrest();
         if ((state.tab === 'historial' || state.tab === 'sesion') && now - lastSessionAt > 1200) {
           if (state.tab === 'historial') renderHistory(); else renderSession();
         }
