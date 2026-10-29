@@ -50,30 +50,35 @@
     drugId: DRUG_BY_ID[LS.get('drug', 'adr')] ? LS.get('drug', 'adr') : 'adr',
     unit: 'µg',
     weight: LS.get('weight', 70),
+    species: CE.SPECIES[LS.get('species', 'rata')] ? LS.get('species', 'rata') : 'rata',
+    prep: CE.PREPS[LS.get('prep', 'normal')] ? LS.get('prep', 'normal') : 'normal',
     tab: 'registro',
     view: { span: Infinity, follow: true, x0: 0 },
     cursorT: null,
     order: LS.get('order', 'desc'),
     expanded: new Set(),
     replay: null,
-    theme: LS.get('theme', 'auto')
+    theme: ['dark', 'light', 'auto'].includes(LS.get('theme', 'dark')) ? LS.get('theme', 'dark') : 'dark'
   };
   let model = null;
   let session = null, sessionDirty = true, lastSessionAt = 0;
 
-  function freshModel() { const m = new CE.Model(); m.run(5); return m; }
+  function freshModel() { const m = new CE.Model({ species: state.species, prep: state.prep }); m.run(5); return m; }
 
   /* ---------- Colores del tema ---------- */
   const C = {};
   function readColors() {
     const cs = getComputedStyle(document.documentElement);
-    ['ink', 'ink-2', 'muted', 'line', 'line-strong', 'pres', 'pres-band', 'hr', 'surface', 'surface-2', 'surface-3', 'accent', 'grid', 'sym', 'vag', 'marker', 'marker-ink']
+    ['ink', 'ink-2', 'muted', 'line', 'line-strong', 'pres', 'pres-band', 'hr', 'surface', 'surface-2', 'surface-3', 'accent', 'grid', 'sym', 'vag', 'marker', 'marker-ink', 'spark', 'p1', 'p2', 'p3', 'p4', 'p5']
       .forEach(k => { C[k] = cs.getPropertyValue('--' + k).trim(); });
     chart.dirty = true;
   }
   function applyTheme() {
     const r = document.documentElement;
-    if (state.theme === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', state.theme);
+    const t = state.theme === 'auto' ? (mq('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : state.theme;
+    r.setAttribute('data-theme', t);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', t === 'light' ? '#ffffff' : '#000000');
     $('#themeLabel').textContent = 'Tema: ' + ({ auto: 'automático', light: 'claro', dark: 'oscuro' })[state.theme];
     readColors();
   }
@@ -104,51 +109,75 @@
     $('#dpCat', adminEl).textContent = CAT_NAME[d.cat];
     $('#dpName', adminEl).textContent = d.name;
     $('#dpMech', adminEl).textContent = d.mech;
-    $('#dpDesc', adminEl).textContent = d.desc;
+    $('#dpDesc', adminEl).textContent = ((model && model.D) || DRUG_BY_ID)[d.id].desc;
+  }
+
+  // Especie del animal actual y dosis habitual de cada fármaco en esa especie
+  const SP = () => CE.SPECIES[model ? model.species : state.species] || CE.SPECIES.rata;
+  const isRat = () => SP().id === 'rata';
+  const defaultDose = d => isRat() ? d.ratDose : { dose: d.dose, unit: d.unit };
+  const UNITS = { rata: ['µg/kg', 'mg/kg', 'µg', 'mg'], humano: ['µg', 'mg', 'µg/kg', 'mg/kg'] };
+
+  function renderUnitOptions() {
+    const keep = unitSel.value;
+    unitSel.innerHTML = UNITS[SP().id].map(u => '<option value="' + u + '">' + u + '</option>').join('');
+    if (UNITS[SP().id].indexOf(keep) >= 0) unitSel.value = keep;
   }
 
   function selectDrug(id) {
     const d = DRUG_BY_ID[id];
+    const def = defaultDose(d);
     state.drugId = id;
-    state.unit = d.unit;
-    unitSel.value = d.unit;
-    doseIn.value = trimNum(d.dose);
+    state.unit = def.unit;
+    unitSel.value = def.unit;
+    doseIn.value = trimNum(def.dose);
     LS.set('drug', id);
     renderDrugPick();
     updateDose();
   }
 
   function currentDose() {
+    const sp = SP(), rat = sp.id === 'rata';
     const dose = parseNum(doseIn.value);
     const unit = unitSel.value;
-    const weight = parseNum(weightIn.value);
+    // En la rata el peso es fijo (300 g); en el humano se escribe
+    const weight = rat ? sp.weight : parseNum(weightIn.value);
     const perKg = unit.indexOf('/kg') > 0;
     let err = '';
     if (!(dose > 0)) err = 'Escribe una dosis mayor que 0.';
-    else if (perKg && !(weight > 0 && weight <= 400)) err = 'Escribe un peso entre 1 y 400 kg.';
+    else if (perKg && !rat && !(weight > 0 && weight <= 400)) err = 'Escribe un peso entre 1 y 400 kg.';
     const ug = err ? NaN : CE.toMicrograms(dose, unit, weight);
     if (!err && !(ug > 0)) err = 'La dosis no es válida.';
-    return { dose, unit, weight, perKg, ug, err };
+    return { dose, unit, weight, perKg, rat, ug, err };
+  }
+
+  function perKgLabel(ugPerKg) {
+    return ugPerKg >= 1000 ? trimNum(ugPerKg / 1000, 3) + ' mg/kg' : trimNum(ugPerKg, 3) + ' µg/kg';
   }
 
   function doseLabel(c) {
     let s = trimNum(c.dose) + ' ' + c.unit;
-    if (c.perKg) s += ' (' + fmtUg(c.ug) + ' para ' + trimNum(c.weight, 1) + ' kg)';
+    if (c.rat) { if (!c.perKg) s += ' (' + perKgLabel(c.ug / c.weight) + ')'; }
+    else if (c.perKg) s += ' (' + fmtUg(c.ug) + ' para ' + trimNum(c.weight, 1) + ' kg)';
     return s;
   }
 
   function updateDose() {
     state.unit = unitSel.value;
     const c = currentDose();
-    $('#weightField', adminEl).hidden = !c.perKg;
-    $('#doseGrid', adminEl).classList.toggle('with-weight', c.perKg);
+    const showWeight = c.perKg && !c.rat;
+    $('#weightField', adminEl).hidden = !showWeight;
+    $('#doseGrid', adminEl).classList.toggle('with-weight', showWeight);
     const eq = $('#doseEq', adminEl);
     if (c.err) eq.textContent = '';
     else {
       const d = DRUG_BY_ID[state.drugId];
-      const ratio = c.ug / CE.toMicrograms(d.dose, d.unit, 70);
-      let t = c.perKg || c.unit === 'mg' ? 'Equivale a ' + fmtUg(c.ug) + '. ' : '';
-      t += Math.abs(ratio - 1) < 0.005 ? 'Dosis habitual.' : nf(ratio, ratio < 1 ? 2 : 1) + ' veces la dosis habitual.';
+      const def = defaultDose(d);
+      const ratio = c.ug / CE.toMicrograms(def.dose, def.unit, c.weight);
+      let t = '';
+      if (c.rat) t = c.perKg ? 'Son ' + fmtUg(c.ug) + ' en una rata de 300 g. ' : 'Equivale a ' + perKgLabel(c.ug / c.weight) + '. ';
+      else if (c.perKg || c.unit === 'mg') t = 'Equivale a ' + fmtUg(c.ug) + '. ';
+      t += Math.abs(ratio - 1) < 0.005 ? 'Dosis habitual.' : trimNum(ratio, ratio < 1 ? 2 : 1) + ' veces la dosis habitual.';
       eq.textContent = t;
     }
     doseIn.removeAttribute('aria-invalid');
@@ -157,9 +186,10 @@
 
   function scaleDose(mul) {
     const d = DRUG_BY_ID[state.drugId];
-    if (mul === 'reset') { unitSel.value = d.unit; doseIn.value = trimNum(d.dose); updateDose(); return; }
+    const def = defaultDose(d);
+    if (mul === 'reset') { unitSel.value = def.unit; doseIn.value = trimNum(def.dose); updateDose(); return; }
     const v = parseNum(doseIn.value);
-    const base = v > 0 ? v : d.dose;
+    const base = v > 0 ? v : def.dose;
     doseIn.value = trimNum(base * parseFloat(mul), 4);
     updateDose();
   }
@@ -172,10 +202,10 @@
       (c.err.indexOf('peso') >= 0 ? weightIn : doseIn).setAttribute('aria-invalid', 'true');
       return;
     }
-    if (c.perKg) { state.weight = c.weight; LS.set('weight', c.weight); }
+    if (c.perKg && !c.rat) { state.weight = c.weight; LS.set('weight', c.weight); }
     const d = DRUG_BY_ID[state.drugId];
     const label = doseLabel(c);
-    const evt = model.inject(d.id, c.ug, { doseLabel: label, dose: c.dose, unit: c.unit, weight: c.perKg ? c.weight : null, mode: state.mode });
+    const evt = model.inject(d.id, c.ug, { doseLabel: label, dose: c.dose, unit: c.unit, weight: c.perKg && !c.rat ? c.weight : null, mode: state.mode });
     if (!evt) { toast('No se pudo administrar.'); return; }
     if (state.mode === 'imm') {
       const btn = $('#giveBtn', adminEl);
@@ -187,6 +217,7 @@
       state.cursorT = null;
       syncRangeSeg();
       toast('#' + evt.n + ' ' + d.name + ' ' + label + ': respuesta registrada en ' + fmtT(secs));
+      checkArrest();
       if (state.tab === 'fisio') startReplay(evt.n);
     } else {
       if (!state.running) setRunning(true);
@@ -196,9 +227,50 @@
   }
 
   function renderModeHint() {
-    $('#modeHint', adminEl).textContent = state.mode === 'imm'
-      ? 'Modo inmediato: la simulación avanza hasta que la respuesta se estabiliza (entre 20 y 150 s).'
-      : 'Modo en vivo: el fármaco actúa en tiempo real a la velocidad elegida. Puedes encadenar dosis sin esperar.';
+    $('#modeHint', adminEl).textContent = (state.mode === 'imm'
+      ? 'Modo inmediato: la simulación avanza hasta que la respuesta se estabiliza (' + (isRat() ? 'en la rata, hasta 10 min' : 'entre 20 y 150 s') + ').'
+      : 'Modo en vivo: el fármaco actúa en tiempo real a la velocidad elegida. Puedes encadenar dosis sin esperar.') +
+      (isRat() ? ' Las dosis van por kg de peso, como en la guía.' : '');
+  }
+
+  function animalText() {
+    const sp = SP(), prep = CE.PREPS[model ? model.prepId : state.prep];
+    const PREP_LABEL = { normal: 'Sin pretratamiento', reserpinizado: 'Animal reserpinizado', descentralizado: 'Animal descentralizado' };
+    return { name: sp.name + ' ' + sp.detail, prep: PREP_LABEL[prep.id] || prep.name };
+  }
+  function renderAnimal() {
+    const a = animalText();
+    $('#animalName', adminEl).textContent = a.name;
+    $('#animalPrep', adminEl).textContent = a.prep;
+    renderUnitOptions();
+  }
+
+  // Diálogo para cambiar de animal (equivale a «terminar el experimento» de la guía)
+  const animalDlg = $('#animalDlg');
+  let dlgSpecies = state.species, dlgPrep = state.prep;
+  function renderAnimalDlg() {
+    $('#dlgSpecies').innerHTML = Object.values(CE.SPECIES).map(sp =>
+      '<button type="button" data-sp="' + sp.id + '" aria-pressed="' + (sp.id === dlgSpecies) + '"><b>' + esc(sp.name) + '</b><span>' + esc(sp.detail) + '</span></button>').join('');
+    $('#dlgPrep').innerHTML = Object.values(CE.PREPS).map(pr =>
+      '<button type="button" data-prep="' + pr.id + '" aria-pressed="' + (pr.id === dlgPrep) + '"><b>' + esc(pr.name) + '</b></button>').join('');
+    $('#dlgPrepDesc').textContent = CE.PREPS[dlgPrep].desc;
+    $('#dlgWarn').hidden = !model.events.length;
+  }
+  function openAnimalDlg() {
+    dlgSpecies = model.species; dlgPrep = model.prepId;
+    renderAnimalDlg();
+    if (animalDlg.showModal) animalDlg.showModal();
+  }
+  function startAnimal(species, prep) {
+    const changedSpecies = species !== model.species;
+    state.species = species; state.prep = prep;
+    LS.set('species', species); LS.set('prep', prep);
+    resetSession(true);
+    renderAnimal();
+    if (changedSpecies) selectDrug(state.drugId); else updateDose();
+    renderModeHint();
+    const a = animalText();
+    toast('Animal nuevo: ' + a.name + ', ' + a.prep.toLowerCase());
   }
 
   /* ==========================================================
@@ -230,7 +302,7 @@
       g.items.map(d =>
         '<button type="button" class="drug-item" role="option" data-id="' + d.id + '" aria-selected="' + (d.id === state.drugId) + '">' +
         '<span class="di-name">' + esc(d.name) + '</span>' +
-        '<span class="di-dose">' + trimNum(d.dose) + ' ' + d.unit + '</span>' +
+        '<span class="di-dose">' + trimNum(defaultDose(d).dose) + ' ' + defaultDose(d).unit + '</span>' +
         '<span class="di-mech">' + esc(d.mech) + '</span></button>').join('') +
       '</div>').join('');
   }
@@ -318,7 +390,7 @@
   const TIME_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
 
   function chartLayout(w, h) {
-    const L = 40, R = 10, top = 26, bottom = 20, gap = 30;
+    const L = 40, R = 10, top = 46, bottom = 20, gap = 34;
     const avail = h - top - bottom - gap;
     const p1h = Math.round(avail * 0.6);
     return { L, R, x1: w - R, p1: { t: top, b: top + p1h }, p2: { t: top + p1h + gap, b: h - bottom } };
@@ -380,9 +452,11 @@
         ctx.beginPath(); ctx.moveTo(lay.L, y); ctx.lineTo(lay.x1, y); ctx.stroke();
         ctx.fillText(String(Math.round(v)), lay.L - 6, y);
       }
-      ctx.textAlign = 'left'; ctx.fillStyle = C['ink-2'];
-      ctx.font = '600 11.5px ' + getComputedStyle(document.body).fontFamily;
-      ctx.fillText(title, lay.L, panel.t - 11);
+      ctx.textAlign = 'left'; ctx.fillStyle = C.muted;
+      ctx.font = '600 10.5px ' + getComputedStyle(document.body).fontFamily;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0.6px';
+      ctx.fillText(title.toUpperCase(), lay.L, panel === lay.p1 ? 12 : panel.t - 13);
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
       ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
     }
     grid(yp, Yp, lay.p1, 'Presión arterial, mmHg');
@@ -449,22 +523,19 @@
     }
 
     // Insignias numeradas
-    ctx.font = '700 11px ' + getComputedStyle(document.body).fontFamily;
+    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
     ctx.textAlign = 'center';
     let lastX = -Infinity;
-    const badgeY = lay.p1.t + 10;
+    const triY = lay.p1.t - 1;
     evs.forEach(e => {
       const x = X(e.t);
       const label = String(e.n);
-      const r = label.length > 2 ? 11 : 9.5;
-      if (x - lastX < r * 2 + 3) {
-        ctx.fillStyle = C.marker; ctx.beginPath(); ctx.arc(x, badgeY, 2.5, 0, Math.PI * 2); ctx.fill();
-        return;
-      }
+      const wLab = ctx.measureText(label).width + 8;
+      ctx.fillStyle = C.marker;
+      ctx.beginPath(); ctx.moveTo(x - 5, triY - 8); ctx.lineTo(x + 5, triY - 8); ctx.lineTo(x, triY); ctx.closePath(); ctx.fill();
+      if (x - lastX < Math.max(18, wLab)) return;
       lastX = x;
-      ctx.fillStyle = C.marker; ctx.beginPath(); ctx.arc(x, badgeY, r, 0, Math.PI * 2); ctx.fill();
-      ctx.lineWidth = 2; ctx.strokeStyle = C.surface; ctx.stroke();
-      ctx.fillStyle = C['marker-ink']; ctx.fillText(label, x, badgeY + 0.5);
+      ctx.fillStyle = C.ink; ctx.fillText(label, x, triY - 17);
     });
 
     // Cursor
@@ -694,15 +765,15 @@
     phys.cells = [];
     for (let i = 0; i < 18; i++) {
       const el = document.createElementNS(NS, 'ellipse');
-      el.setAttribute('fill', 'var(--wall-cell)');
+      el.setAttribute('fill', 'none'); el.setAttribute('stroke', 'var(--wall-cell)'); el.setAttribute('stroke-width', '1.4');
       cells.appendChild(el); phys.cells.push(el);
     }
     const rbc = $('#artRbc');
     phys.rbc = [];
     for (let i = 0; i < 7; i++) {
       const g = document.createElementNS(NS, 'g');
-      const o = document.createElementNS(NS, 'circle'); o.setAttribute('r', '7.5'); o.setAttribute('fill', 'var(--rbc)');
-      const c = document.createElementNS(NS, 'circle'); c.setAttribute('r', '3.2'); c.setAttribute('fill', 'var(--blood)'); c.setAttribute('opacity', '.55');
+      const o = document.createElementNS(NS, 'circle'); o.setAttribute('r', '7.5'); o.setAttribute('fill', 'none'); o.setAttribute('stroke', 'var(--rbc)'); o.setAttribute('stroke-width', '1.4');
+      const c = document.createElementNS(NS, 'circle'); c.setAttribute('r', '2.6'); c.setAttribute('fill', 'none'); c.setAttribute('stroke', 'var(--rbc)'); c.setAttribute('stroke-width', '1'); c.setAttribute('opacity', '.6');
       g.appendChild(o); g.appendChild(c); rbc.appendChild(g);
       phys.rbc.push({ el: g, a: Math.random() * Math.PI * 2, f: 0.2 + Math.random() * 0.75, w: (Math.random() - 0.5) * 0.6, ph: Math.random() * 6 });
     }
@@ -760,6 +831,71 @@
   }
   const contraction = ph => ph < 0.32 ? Math.sin(Math.PI * ph / 0.32) : 0;
 
+  /* Corazón de partículas: una constelación de triángulos en contorno (el gesto
+     distintivo de la guía de estilo) que se contrae con cada latido */
+  const heartP = { built: false, parts: [], t: 0 };
+  function heartCurve(t) {
+    return [16 * Math.pow(Math.sin(t), 3), -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t))];
+  }
+  function buildHeart() {
+    const poly = [];
+    for (let i = 0; i < 240; i++) poly.push(heartCurve(i / 240 * Math.PI * 2));
+    const inside = (x, y) => {
+      let c = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [xi, yi] = poly[i], [xj, yj] = poly[j];
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    };
+    let seed = 7;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    const parts = [];
+    const add = (x, y, kind) => parts.push({ x, y, kind, s: 0.32 + rnd() * 0.5, rot: rnd() * Math.PI * 2, spin: (rnd() - 0.5) * 0.6, col: Math.floor(rnd() * 5), tw: rnd() * Math.PI * 2, d: rnd() });
+    while (parts.length < 380) { const x = -17 + rnd() * 34, y = -13 + rnd() * 30; if (inside(x, y)) add(x, y, 0); }
+    for (let i = 0; i < 170; i++) { const [x, y] = heartCurve(rnd() * Math.PI * 2); add(x + (rnd() - 0.5) * 1.6, y + (rnd() - 0.5) * 1.6, 0); }
+    for (let i = 0; i < 70; i++) { const a = rnd() * Math.PI * 2, r = 19 + rnd() * 12; add(Math.cos(a) * r * 1.2, 2 + Math.sin(a) * r * 0.9, 1); }
+    heartP.parts = parts; heartP.built = true;
+  }
+  function drawHeart(dt, c, contr) {
+    if (!heartP.built) buildHeart();
+    const s = sizeCanvas($('#heartCv'));
+    if (!s) return;
+    const { ctx, w, h } = s;
+    heartP.t += dt;
+    const cols = [C.p1, C.p2, C.p3, C.p4, C.p5];
+    const unit = Math.min(w / 46, h / 40);
+    const cx = w / 2, cy = h / 2 - unit * 1.5;
+    const squeeze = 1 - 0.085 * c * Math.sqrt(contr);
+    ctx.clearRect(0, 0, w, h);
+    ctx.lineJoin = 'round';
+    heartP.parts.forEach(q => {
+      let k = 1, alpha;
+      if (q.kind === 0) {
+        // Contracción hacia el centro, más marcada en el borde
+        k = squeeze - 0.02 * c * q.d;
+        alpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(heartP.t * 1.3 + q.tw)) * (0.6 + 0.4 * c);
+      } else {
+        alpha = 0.22 + 0.12 * Math.sin(heartP.t * 0.8 + q.tw);
+      }
+      const drift = q.kind === 1 && !reduceMotion ? Math.sin(heartP.t * 0.25 + q.tw) * 0.6 : 0;
+      const x = cx + (q.x + drift) * unit * k, y = cy + (q.y + drift * 0.5) * unit * k;
+      const r = q.s * unit * 0.55 * (q.kind === 0 ? 1 + 0.25 * c : 0.8);
+      const a = q.rot + (reduceMotion ? 0 : heartP.t * q.spin);
+      ctx.globalAlpha = clamp(alpha, 0, 1);
+      ctx.strokeStyle = cols[q.col];
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let v = 0; v < 3; v++) {
+        const ang = a + v * 2.0944;
+        const px = x + Math.cos(ang) * r, py = y + Math.sin(ang) * r;
+        if (v) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+      }
+      ctx.closePath(); ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+  }
+
   function stepPhysio(dt) {
     buildPhysio();
     const p = physioPoint();
@@ -771,7 +907,7 @@
     if (s) {
       const { ctx, w, h } = s;
       if (!phys.buf || phys.buf.length !== w) { phys.buf = new Float32Array(w).fill(NaN); phys.head = 0; }
-      const speed = 90;
+      const speed = isRat() ? 240 : 90;
       if (reduceMotion) {
         for (let i = 0; i < w; i++) { const ph = (i / speed * hr / 60) % 1; phys.buf[i] = p.dia + pp * wave(ph); }
         phys.phase = 0.6;
@@ -819,9 +955,7 @@
     // Corazón
     const c = reduceMotion ? 0 : contraction(phys.phase);
     const contr = clamp(p.contr, 0.3, 2.5);
-    const sc = 1 - 0.075 * c * Math.sqrt(contr);
-    $('#heartBody').setAttribute('transform', 'translate(100 122) scale(' + sc.toFixed(4) + ') translate(-100 -122)');
-    $('#aortaFlow').setAttribute('stroke-opacity', (0.55 * c * clamp(p.sv / BASE.sv, 0.3, 1.6)).toFixed(3));
+    drawHeart(dt, c, contr);
 
     // Arteriola: el radio de la luz sigue a la resistencia (Poiseuille, R ∝ 1/r⁴), exagerado para que se vea
     const target = clamp(56 * Math.pow(p.svr, -0.85), 14, 74);
@@ -890,8 +1024,13 @@
       if (p.svr > 1.08) { st.textContent = 'Vasoconstricción'; st.className = 'state-pill up'; }
       else if (p.svr < 0.92) { st.textContent = 'Vasodilatación'; st.className = 'state-pill down'; }
       else { st.textContent = 'Tono basal'; st.className = 'state-pill'; }
-      $('#fCo').textContent = nf(p.co, 1);
-      $('#fSv').textContent = nf(p.sv);
+      if (isRat()) {
+        $('#fCo').textContent = nf(p.co * 1000); $('#fCoU').textContent = 'mL/min';
+        $('#fSv').textContent = nf(p.sv, 2);
+      } else {
+        $('#fCo').textContent = nf(p.co, 1); $('#fCoU').textContent = 'L/min';
+        $('#fSv').textContent = nf(p.sv);
+      }
       $('#fMap').textContent = nf(p.map);
       $('#fPp').textContent = nf(pp);
       $('#fPulse').textContent = nf(p.sys) + '/' + nf(p.dia) + ' mmHg';
@@ -900,7 +1039,9 @@
       $('#mVag').style.width = clamp(vag / 3, 0, 1) * 100 + '%';
       $('#vSym').textContent = toneTxt(sym);
       $('#vVag').textContent = toneTxt(vag);
-      $('#toneNote').textContent = p.gT < 0.6
+      $('#toneNote').textContent = model.prepId === 'descentralizado'
+        ? 'Animal descentralizado: sin sistema nervioso central no hay barorreflejo ni tono vagal, y el tono simpático es mínimo. Los fármacos actúan sin que nada compense.'
+        : p.gT < 0.6
         ? 'La transmisión ganglionar está bloqueada (' + nf(p.gT * 100) + ' % de la basal): ni el simpático ni el vago llegan a sus órganos y el barorreflejo no puede compensar.'
         : 'La marca indica el tono basal. El barorreflejo sube el tono simpático y baja el vagal cuando la presión cae, y al revés cuando sube.';
       const base = model.points[0];
@@ -947,9 +1088,9 @@
   const controlTraceCache = new Map();
   // Traza de la respuesta control con el mismo protocolo que controlResponse (sujeto sin fármacos previos)
   function controlTrace(drugId, ug) {
-    const key = drugId + ':' + ug.toPrecision(6);
+    const key = drugId + ':' + ug.toPrecision(6) + ':' + model.species + ':' + model.prepId;
     if (controlTraceCache.has(key)) return controlTraceCache.get(key);
-    const m = new CE.Model();
+    const m = new CE.Model({ species: model.species, prep: model.prepId });
     m.run(2);
     const t0 = m.s.t;
     m.inject(drugId, ug);
@@ -1000,7 +1141,7 @@
     $('#orderSeg').hidden = n < 2;
     const box = $('#evList');
     if (!n) {
-      box.innerHTML = '<div class="card empty"><h3>Aún no hay administraciones</h3><p>Cada dosis que administres aparecerá aquí junto a la respuesta que tendría un sujeto sin fármacos previos.</p><button type="button" class="btn-secondary" data-goto="registro">Ir a Registro</button></div>';
+      box.innerHTML = '<div class="card empty"><h3>Aún no hay administraciones</h3><p>Cada dosis que administres aparecerá aquí junto a la respuesta que tendría un sujeto sin fármacos previos.</p><button type="button" class="ghost" data-goto="registro">Ir a Registro</button></div>';
       return;
     }
     if (state.order === 'desc') items.reverse();
@@ -1033,8 +1174,8 @@
           '<p class="mech">Basal previa: ' + nf(e.pre.sys) + '/' + nf(e.pre.dia) + ' mmHg, PAM ' + nf(e.pre.map) + ', FC ' + nf(e.pre.hr) + ' lpm.' +
           (mods.length ? ' Presentes: ' + esc(mods.join(', ')) + '.' : ' Sin otros fármacos activos.') +
           (r.duration > 0 ? ' Duración del efecto sobre la PAM: ' + fmtT(r.duration) + '.' : '') + '</p>' +
-          '<div class="ev-actions"><button type="button" class="btn-secondary" data-view="' + e.n + '">Ver en la gráfica</button>' +
-          '<button type="button" class="btn-secondary" data-replay="' + e.n + '">Ver en Fisiología</button></div>' +
+          '<div class="ev-actions"><button type="button" class="ghost" data-view="' + e.n + '">Ver en la gráfica</button>' +
+          '<button type="button" class="ghost" data-replay="' + e.n + '">Ver en Fisiología</button></div>' +
           '</div>';
       }
       return '<article class="ev' + (info.changed ? ' changed' : '') + '">' +
@@ -1054,12 +1195,13 @@
     const S = getSession();
     const box = $('#sessionBox');
     if (!S.items.length) {
-      box.innerHTML = '<div class="card empty"><h3>La sesión está vacía</h3><p>Administra un fármaco y aquí aparecerán el resumen, las respuestas que difieren del control y los bloqueos que persisten.</p><button type="button" class="btn-secondary" data-goto="registro">Ir a Registro</button></div>' + actionsCard();
+      box.innerHTML = '<div class="card empty"><h3>La sesión está vacía</h3><p>Administra un fármaco y aquí aparecerán el resumen, las respuestas que difieren del control y los bloqueos que persisten.</p><button type="button" class="ghost" data-goto="registro">Ir a Registro</button></div>' + actionsCard();
       return;
     }
     const st = S.stats, f = st.final;
     const statsHtml =
       '<div class="stats">' +
+      stat('Animal', SP().name, CE.PREPS[model.prepId].name.toLowerCase()) +
       stat('Duración', fmtT(st.duration)) +
       stat('Administraciones', st.n) +
       stat('Fármacos distintos', st.drugs) +
@@ -1073,11 +1215,11 @@
       ? '<ul class="concl">' + S.findings.map(x => '<li><b>#' + x.evt.n + ' ' + esc(DRUG_BY_ID[x.evt.drugId].name) + '</b>: presión ' + esc(CE.CMP_LABEL[x.info.cmp.map].toLowerCase()) + ', FC ' + esc(CE.CMP_LABEL[x.info.cmp.hr].toLowerCase()) + '.</li>').join('') + '</ul>'
       : '<p class="card-sub">Todas las respuestas fueron comparables a su control.</p>';
     box.innerHTML =
-      '<div class="card"><div class="card-head"><h2 class="card-title">Resumen de la sesión</h2></div>' + statsHtml + '</div>' +
-      '<div class="card"><div class="card-head"><h2 class="card-title">Conclusiones</h2></div><ul class="concl">' +
+      '<div class="card"><div class="card-head"><h2 class="headline">Resumen de la sesión</h2></div>' + statsHtml + '</div>' +
+      '<div class="card"><div class="card-head"><h2 class="eyebrow">Conclusiones</h2></div><ul class="concl">' +
       S.conclusions.map(c => '<li>' + esc(c) + '</li>').join('') + '</ul></div>' +
-      '<div class="card"><div class="card-head"><h2 class="card-title">Respuestas que difieren del control</h2><span class="card-sub">' + S.findings.length + ' de ' + S.items.length + '</span></div>' + findings + '</div>' +
-      '<div class="card"><div class="card-head"><h2 class="card-title">Al final de la sesión</h2></div>' +
+      '<div class="card"><div class="card-head"><h2 class="eyebrow">Respuestas que difieren del control</h2><span class="card-sub">' + S.findings.length + ' de ' + S.items.length + '</span></div>' + findings + '</div>' +
+      '<div class="card"><div class="card-head"><h2 class="eyebrow">Al final de la sesión</h2></div>' +
       (blocks.length ? '<div class="chips">' + blocks.join('') + '</div>' : '<p class="card-sub">No persisten bloqueos relevantes.</p>') + '</div>' +
       actionsCard();
   }
@@ -1085,10 +1227,10 @@
     return '<div class="stat"><span>' + esc(label) + '</span><b>' + esc(String(val)) + '</b>' + (small ? ' <small>' + esc(small) + '</small>' : '') + '</div>';
   }
   function actionsCard() {
-    return '<div class="card"><div class="card-head"><h2 class="card-title">Datos</h2></div><div class="actions">' +
-      '<button type="button" class="btn-secondary" data-act="csv-points">Exportar registro (CSV)</button>' +
-      '<button type="button" class="btn-secondary" data-act="csv-events">Exportar administraciones (CSV)</button>' +
-      '<button type="button" class="btn-secondary danger" data-act="reset">Reiniciar sesión</button></div></div>';
+    return '<div class="card"><div class="card-head"><h2 class="eyebrow">Datos</h2></div><div class="actions">' +
+      '<button type="button" class="ghost" data-act="csv-points">Exportar registro (CSV)</button>' +
+      '<button type="button" class="ghost" data-act="csv-events">Exportar administraciones (CSV)</button>' +
+      '<button type="button" class="ghost danger" data-act="reset">Terminar experimento</button></div></div>';
   }
 
   /* ==========================================================
@@ -1124,10 +1266,10 @@
   function exportEvents() {
     const S = getSession(true);
     if (!S.items.length) { toast('No hay administraciones que exportar.'); return; }
-    const rows = [['n', 't_s', 'farmaco', 'dosis', 'dosis_ug', 'pre_sis', 'pre_dia', 'pre_pam', 'pre_fc', 'pico_dPAM', 'pico_dSIS', 'pico_dDIA', 'pico_dFC', 'control_dPAM', 'control_dFC', 'comparacion_PAM', 'comparacion_FC', 'respuesta', 'farmacos_presentes', 'interpretacion']];
+    const rows = [['n', 't_s', 'animal', 'preparacion', 'farmaco', 'dosis', 'dosis_ug', 'pre_sis', 'pre_dia', 'pre_pam', 'pre_fc', 'pico_dPAM', 'pico_dSIS', 'pico_dDIA', 'pico_dFC', 'control_dPAM', 'control_dFC', 'comparacion_PAM', 'comparacion_FC', 'respuesta', 'farmacos_presentes', 'interpretacion']];
     S.items.forEach(x => {
       const e = x.evt, r = x.resp, c = x.ctrl;
-      rows.push([e.n, e.t, DRUG_BY_ID[e.drugId].name, e.doseLabel || fmtUg(e.ug), e.ug, e.pre.sys, e.pre.dia, e.pre.map, e.pre.hr,
+      rows.push([e.n, e.t, CE.SPECIES[e.species].name, CE.PREPS[e.prep].name, DRUG_BY_ID[e.drugId].name, e.doseLabel || fmtUg(e.ug), e.ug, e.pre.sys, e.pre.dia, e.pre.map, e.pre.hr,
         r.map.peak, r.sys.peak, r.dia.peak, r.hr.peak, c.map.peak, c.hr.peak,
         CE.CMP_LABEL[x.info.cmp.map], CE.CMP_LABEL[x.info.cmp.hr], x.info.tags.map(t => t.label).join(' / '),
         (e.ctx.modifiers || []).map(m => m.id).filter(id => id !== e.drugId).map(id => DRUG_BY_ID[id].name).join(' / '),
@@ -1160,7 +1302,7 @@
     state.mode = mode; LS.set('mode', mode);
     $$('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
     $('#liveBar').hidden = mode !== 'live';
-    state.view = mode === 'live' ? { span: 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
+    state.view = mode === 'live' ? { span: isRat() ? 300 : 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
     if (mode === 'live') setRunning(true);
     syncRangeSeg();
     renderModeHint();
@@ -1181,16 +1323,16 @@
     $$('#speedSeg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.speed === s)));
   }
 
-  function resetSession() {
+  function resetSession(quiet) {
     model = freshModel();
     state.expanded.clear();
     state.cursorT = null;
     state.replay = null;
-    state.view = state.mode === 'live' ? { span: 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
+    state.view = state.mode === 'live' ? { span: isRat() ? 300 : 60, follow: true, x0: 0 } : { span: Infinity, follow: true, x0: 0 };
     syncRangeSeg();
     dataChanged(true);
     syncReplayBtn();
-    toast('Sesión reiniciada');
+    if (!quiet) toast('Experimento terminado: animal nuevo sin pretratamiento');
   }
 
   function dataChanged(heavy) {
@@ -1276,7 +1418,7 @@
   });
   function runAction(act) {
     if (act === 'theme') {
-      state.theme = ({ auto: 'light', light: 'dark', dark: 'auto' })[state.theme];
+      state.theme = ({ dark: 'light', light: 'auto', auto: 'dark' })[state.theme];
       LS.set('theme', state.theme); applyTheme();
     } else if (act === 'csv-points') exportPoints();
     else if (act === 'csv-events') exportEvents();
@@ -1290,6 +1432,11 @@
 
   // Administración
   $('#drugPick', adminEl).addEventListener('click', openSheet);
+  $('#animalBtn', adminEl).addEventListener('click', openAnimalDlg);
+  $('#dlgSpecies').addEventListener('click', e => { const b = e.target.closest('[data-sp]'); if (b) { dlgSpecies = b.dataset.sp; renderAnimalDlg(); } });
+  $('#dlgPrep').addEventListener('click', e => { const b = e.target.closest('[data-prep]'); if (b) { dlgPrep = b.dataset.prep; renderAnimalDlg(); } });
+  $('#animalCancel').addEventListener('click', () => animalDlg.close());
+  $('#animalOk').addEventListener('click', () => { animalDlg.close(); startAnimal(dlgSpecies, dlgPrep); });
   doseIn.addEventListener('input', updateDose);
   weightIn.addEventListener('input', updateDose);
   unitSel.addEventListener('change', updateDose);
@@ -1331,7 +1478,14 @@
 
   window.addEventListener('resize', () => { chart.dirty = true; });
   const schemeMq = mq('(prefers-color-scheme: dark)');
-  if (schemeMq.addEventListener) schemeMq.addEventListener('change', readColors);
+  if (schemeMq.addEventListener) schemeMq.addEventListener('change', () => { if (state.theme === 'auto') applyTheme(); });
+
+  // Paro cardíaco en la rata (p. ej. acetilcolina con la colinesterasa inhibida)
+  function checkArrest() {
+    if (!model.s.arrest || model.arrestShown) return;
+    model.arrestShown = true;
+    toast('Paro cardíaco: el animal murió. Pulsa «Terminar experimento» para seguir con uno nuevo.');
+  }
 
   /* ---------- Bucle principal ---------- */
   let lastFrame = performance.now(), simAcc = 0, lastMiniDraw = 0;
@@ -1346,6 +1500,7 @@
         n = Math.min(n, 1200);
         for (let i = 0; i < n; i++) model.step(DT);
         dataChanged(false);
+        checkArrest();
         if ((state.tab === 'historial' || state.tab === 'sesion') && now - lastSessionAt > 1200) {
           if (state.tab === 'historial') renderHistory(); else renderSession();
         }
@@ -1366,6 +1521,7 @@
   model = freshModel();
   placeAdmin();
   applyTheme();
+  renderAnimal();
   selectDrug(state.drugId);
   weightIn.value = trimNum(state.weight, 1);
   setSpeed(state.speed);

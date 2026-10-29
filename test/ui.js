@@ -5,7 +5,8 @@ const OUT = process.argv[2] || 'shots';
 require('fs').mkdirSync(OUT, { recursive: true });
 const url = 'file://' + path.join(__dirname, '..', 'index.html');
 
-const SEQ = [['nor', 10, 'µg'], ['adr', 10, 'µg'], ['iso', 5, 'µg'], ['ach', 10, 'µg'], ['atr', 1, 'mg'], ['ach', 10, 'µg'], ['ach', 1000, 'µg'], ['nor', 10, 'µg'], ['phn', 2, 'mg'], ['adr', 10, 'µg'], ['pro', 2, 'mg'], ['iso', 5, 'µg'], ['avp', 2, 'µg']];
+// Práctica Nº 7 en rata, con las dosis de la guía
+const SEQ = [['adr', 0.3, 'µg/kg'], ['adr', 1, 'µg/kg'], ['adr', 10, 'µg/kg'], ['pro', 1000, 'µg/kg'], ['adr', 10, 'µg/kg'], ['iso', 3, 'µg/kg'], ['ate', 1000, 'µg/kg'], ['iso', 3, 'µg/kg'], ['prz', 1, 'mg/kg'], ['adr', 10, 'µg/kg'], ['phe', 100, 'µg/kg'], ['nor', 10, 'µg/kg']];
 
 async function pickDrug(page, id, name) {
   await page.click('#drugPick');
@@ -100,11 +101,31 @@ async function overflow(page, label, errs) {
     const p = await dl.path(); const csv = require('fs').readFileSync(p, 'utf8');
     const [dl2] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => document.querySelector('[data-act="csv-points"]').click())]);
     const csv2 = require('fs').readFileSync(await dl2.path(), 'utf8');
-    // Reinicio
+    // Cambio de animal: rata descentralizada y después humano
+    await page.click('#t-registro');
+    await page.click('#animalBtn');
+    await page.click('#dlgPrep [data-prep="descentralizado"]');
+    await page.screenshot({ path: OUT + '/' + tag + '-9-animal.png' });
+    await page.click('#animalOk');
+    const pithed = await page.evaluate(() => [document.querySelector('#vSys').textContent, document.querySelector('#vDia').textContent, document.querySelector('#vHr').textContent, document.querySelector('#animalPrep').textContent]);
+    await pickDrug(page, 'prz', 'Prazosina');
+    await page.click('#giveBtn');
+    await page.click('#animalBtn');
+    await page.click('#dlgSpecies [data-sp="humano"]');
+    await page.click('#dlgPrep [data-prep="normal"]');
+    await page.click('#animalOk');
+    const human = await page.evaluate(() => [document.querySelector('#vSys').textContent, document.querySelector('#vHr').textContent, document.querySelector('#unit').value, document.querySelector('#dose').value]);
+    await pickDrug(page, 'adr', 'Adrenalina');
+    await page.click('#giveBtn');
+    await overflow(page, tag + ' humano', errs);
+    // Terminar experimento
     await page.evaluate(() => document.querySelector('#menu [data-act="reset"]').click());
     await page.click('#resetOk');
+    await page.click('#t-historial');
     const evCount = await page.evaluate(() => document.querySelectorAll('.ev').length);
-    all.push({ tag, errs, conclusions: chk, csvEvents: csv.split('\n').length - 1, csvPoints: csv2.split('\n').length - 1, afterReset: evCount });
+    // Volver a rata normal para la siguiente ejecución
+    await page.click('#t-registro'); await page.click('#animalBtn'); await page.click('#dlgSpecies [data-sp="rata"]'); await page.click('#animalOk');
+    all.push({ tag, pithed, human, errs, conclusions: chk, csvEvents: csv.split('\n').length - 1, csvPoints: csv2.split('\n').length - 1, afterReset: evCount });
     await ctx.close();
   }
   await browser.close();
